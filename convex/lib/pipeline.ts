@@ -30,12 +30,52 @@ export const PIPELINE_STAGES = [
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number]["id"];
 
+export const INITIAL_DISCOVERY_STAGE: PipelineStage = "new";
+
+/** Demo cap — cards never advance past Nurture automatically or manually. */
+export const DEMO_MAX_PIPELINE_STAGE: PipelineStage = "nurture";
+
+const STAGE_RANK: Record<PipelineStage, number> = {
+  disqualified: -1,
+  inbound: 10,
+  new: 10,
+  prospecting: 10,
+  nurture: 20,
+  opportunity: 30,
+  customer: 40,
+};
+
+export function defaultPipelineStage(
+  stage: PipelineStage | undefined,
+): PipelineStage {
+  return stage ?? INITIAL_DISCOVERY_STAGE;
+}
+
 export function stageFromIntentScore(score: number): PipelineStage {
   if (score >= 85) return "opportunity";
   if (score >= 70) return "prospecting";
   if (score >= 55) return "nurture";
   if (score >= 40) return "new";
   return "inbound";
+}
+
+export function stageRank(stage: PipelineStage): number {
+  return STAGE_RANK[stage];
+}
+
+export function capPipelineStageForDemo(stage: PipelineStage): PipelineStage {
+  return stageRank(stage) > stageRank(DEMO_MAX_PIPELINE_STAGE)
+    ? DEMO_MAX_PIPELINE_STAGE
+    : stage;
+}
+
+export function advancePipelineStage(
+  current: PipelineStage | undefined,
+  target: PipelineStage,
+): PipelineStage {
+  const from = defaultPipelineStage(current);
+  const cappedTarget = capPipelineStageForDemo(target);
+  return stageRank(cappedTarget) > stageRank(from) ? cappedTarget : from;
 }
 
 export function stageLabel(stage: PipelineStage): string {

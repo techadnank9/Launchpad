@@ -3,6 +3,7 @@
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { brandFromRun } from "../lib/brandContext";
 import { generateEmailSequence } from "../lib/openai";
 
 export const run = internalAction({
@@ -12,15 +13,19 @@ export const run = internalAction({
     productSummary: v.string(),
   },
   handler: async (ctx, args) => {
-    const persona = await ctx.runQuery(internal.agents.helpers.getPersona, {
-      personaId: args.personaId,
-    });
-    if (!persona) return;
+    const [persona, run] = await Promise.all([
+      ctx.runQuery(internal.agents.helpers.getPersona, {
+        personaId: args.personaId,
+      }),
+      ctx.runQuery(internal.agents.helpers.getRun, { runId: args.runId }),
+    ]);
+    if (!persona || !run) return;
 
     try {
-      const email = await generateEmailSequence(args.productSummary, persona);
+      const brand = brandFromRun(run, args.productSummary);
+      const email = await generateEmailSequence(brand, persona);
 
-      await ctx.runMutation(internal.emails.insertEmail, {
+      await ctx.runMutation(internal.emails.upsertSequence, {
         runId: args.runId,
         personaId: args.personaId,
         subject: email.subject,

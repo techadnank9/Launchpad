@@ -115,4 +115,53 @@
     background-color: #0a0a0a;
     color: #ffffff;
   }
+
+  .landing-grid {
+    position: relative;
+    background-color: var(--background);
+  }
+
+  .landing-grid::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgb(10 10 10 / 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(10 10 10 / 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 80% at 50% -10%, black 15%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .landing-grid > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .landing-shadow {
+    box-shadow:
+      0 1px 2px rgb(10 10 10 / 0.04),
+      0 12px 40px rgb(10 10 10 / 0.08),
+      0 24px 80px rgb(10 10 10 / 0.06);
+  }
+
+  .landing-preview {
+    animation: landing-float 7s ease-in-out infinite;
+  }
+
+  @keyframes landing-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-preview {
+      animation: none;
+    }
+  }
 }

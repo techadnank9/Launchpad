@@ -23,6 +23,8 @@ export const run = internalAction({
     personaId: v.id("personas"),
     caption: v.string(),
     posterUrl: v.string(),
+    campaignKey: v.optional(v.string()),
+    eventLabel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     try {
@@ -44,6 +46,8 @@ export const run = internalAction({
               platform,
             ),
             status: "draft",
+            campaignKey: args.campaignKey ?? "evergreen",
+            eventLabel: args.eventLabel,
           });
         }
       } else {
@@ -60,6 +64,8 @@ export const run = internalAction({
             scheduledAt: postScheduledAt(index, result.platform),
             status: "draft",
             postizId: result.postizId,
+            campaignKey: args.campaignKey ?? "evergreen",
+            eventLabel: args.eventLabel,
           });
         }
       }

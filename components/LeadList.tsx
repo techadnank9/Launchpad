@@ -7,7 +7,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import {
   PIPELINE_STAGES,
   type PipelineStage,
-  stageFromIntentScore,
+  defaultPipelineStage,
   stageLabel,
   stageTone,
 } from "@/lib/pipeline";
@@ -24,7 +24,7 @@ export function LeadList({ personaId }: LeadListProps) {
     if (!leads) return new Map<PipelineStage, number>();
     const counts = new Map<PipelineStage, number>();
     for (const lead of leads) {
-      const stage = lead.pipelineStage ?? stageFromIntentScore(lead.intentScore);
+      const stage = defaultPipelineStage(lead.pipelineStage);
       counts.set(stage, (counts.get(stage) ?? 0) + 1);
     }
     return counts;
@@ -35,8 +35,7 @@ export function LeadList({ personaId }: LeadListProps) {
     if (stageFilter === "all") return leads;
     return leads.filter(
       (lead) =>
-        (lead.pipelineStage ?? stageFromIntentScore(lead.intentScore)) ===
-        stageFilter,
+        defaultPipelineStage(lead.pipelineStage) === stageFilter,
     );
   }, [leads, stageFilter]);
 
@@ -117,7 +116,7 @@ export function LeadList({ personaId }: LeadListProps) {
           <tbody>
             {filteredLeads.map((lead) => {
               const stage =
-                lead.pipelineStage ?? stageFromIntentScore(lead.intentScore);
+                defaultPipelineStage(lead.pipelineStage);
               return (
               <tr
                 key={lead._id}

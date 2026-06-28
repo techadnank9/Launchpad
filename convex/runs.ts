@@ -42,6 +42,103 @@ export const getLatestRun = query({
   },
 });
 
+export const refreshBrandColors = mutation({
+  args: { runId: v.id("runs") },
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+
+    await ctx.scheduler.runAfter(0, internal.brandActions.refreshFromSite, {
+      runId: args.runId,
+    });
+
+    return {
+      success: true,
+      message: "Re-scanning brand colors from the live site…",
+    };
+  },
+});
+
+export const regeneratePosters = mutation({
+  args: { runId: v.id("runs") },
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+
+    await ctx.scheduler.runAfter(0, internal.brandActions.regenerateRunPosters, {
+      runId: args.runId,
+    });
+
+    return {
+      success: true,
+      message: "Regenerating posters with integrated brand styling…",
+    };
+  },
+});
+
+export const enrichContactEmails = mutation({
+  args: { runId: v.id("runs") },
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+
+    await ctx.scheduler.runAfter(0, internal.leadActions.enrichContactEmailsForRun, {
+      runId: args.runId,
+    });
+
+    return {
+      success: true,
+      message: "Enriching work emails from Fiber (2 credits per lead)…",
+    };
+  },
+});
+
+export const regenerateEmailSequences = mutation({
+  args: { runId: v.id("runs") },
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+
+    await ctx.scheduler.runAfter(0, internal.emailActions.regenerateForRun, {
+      runId: args.runId,
+    });
+
+    return {
+      success: true,
+      message: "Rewriting outbound sequences with sharper, persona-specific copy…",
+    };
+  },
+});
+
+export const updateBrandColors = internalMutation({
+  args: {
+    runId: v.id("runs"),
+    brandColors: v.array(v.string()),
+    brandLogoUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+
+    await ctx.db.patch(args.runId, {
+      brandColors: args.brandColors,
+      ...(args.brandLogoUrl !== undefined
+        ? { brandLogoUrl: args.brandLogoUrl }
+        : {}),
+    });
+
+    if (run.siteId) {
+      await ctx.db.patch(run.siteId, {
+        brandColors: args.brandColors,
+        ...(args.brandLogoUrl !== undefined
+          ? { brandLogoUrl: args.brandLogoUrl }
+          : {}),
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});
+
 export const updateRunStatus = internalMutation({
   args: {
     runId: v.id("runs"),
@@ -58,6 +155,7 @@ export const updateRunStatus = internalMutation({
     brandCompanyName: v.optional(v.string()),
     brandTagline: v.optional(v.string()),
     brandColors: v.optional(v.array(v.string())),
+    brandLogoUrl: v.optional(v.string()),
     brandVisualStyle: v.optional(v.string()),
     brandImageryNotes: v.optional(v.string()),
     brandSocialStudy: v.optional(brandSocialStudyValidator),
@@ -80,6 +178,9 @@ export const updateRunStatus = internalMutation({
     }
     if (updates.brandColors !== undefined) {
       patch.brandColors = updates.brandColors;
+    }
+    if (updates.brandLogoUrl !== undefined) {
+      patch.brandLogoUrl = updates.brandLogoUrl;
     }
     if (updates.brandVisualStyle !== undefined) {
       patch.brandVisualStyle = updates.brandVisualStyle;

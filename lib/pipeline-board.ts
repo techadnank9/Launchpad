@@ -1,44 +1,51 @@
-import { stageFromIntentScore, type PipelineStage } from "./pipeline";
+import {
+  defaultPipelineStage,
+  type PipelineStage,
+} from "./pipeline";
 import {
   computeDealValue,
   defaultPersonaEconomics,
   personaEconomicsFromPersona,
 } from "@/lib/deal-value";
 
-export const MONACO_COLUMNS = [
+export const PIPELINE_COLUMNS = [
   {
     id: "discovery",
     label: "Discovery",
+    hint: "Account found — not contacted yet",
     stages: ["inbound", "new", "prospecting"] as PipelineStage[],
   },
   {
     id: "nurture",
     label: "Nurture",
+    hint: "Outreach sent — warming the account",
     stages: ["nurture"] as PipelineStage[],
   },
   {
     id: "proposal",
     label: "Proposal",
+    hint: "Discovery meeting done — in deal conversation",
     stages: ["opportunity"] as PipelineStage[],
   },
   {
     id: "won",
     label: "Closed Won",
+    hint: "Signed customer",
     stages: ["customer"] as PipelineStage[],
   },
 ] as const;
 
-export type MonacoColumnId = (typeof MONACO_COLUMNS)[number]["id"];
+export type PipelineColumnId = (typeof PIPELINE_COLUMNS)[number]["id"];
 
 export function resolveStage(
   stage: PipelineStage | undefined,
-  intentScore: number,
+  _intentScore: number,
 ): PipelineStage {
-  return stage ?? stageFromIntentScore(intentScore);
+  return defaultPipelineStage(stage);
 }
 
-export function columnForStage(stage: PipelineStage): MonacoColumnId {
-  for (const column of MONACO_COLUMNS) {
+export function columnForStage(stage: PipelineStage): PipelineColumnId {
+  for (const column of PIPELINE_COLUMNS) {
     if (column.stages.includes(stage)) return column.id;
   }
   return "discovery";
@@ -59,14 +66,14 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function defaultStageForColumn(columnId: MonacoColumnId): PipelineStage {
-  const column = MONACO_COLUMNS.find((c) => c.id === columnId);
+export function defaultStageForColumn(columnId: PipelineColumnId): PipelineStage {
+  const column = PIPELINE_COLUMNS.find((c) => c.id === columnId);
   if (!column) return "prospecting";
   return column.stages[column.stages.length - 1] ?? "prospecting";
 }
 
-export function columnLabel(columnId: MonacoColumnId): string {
-  return MONACO_COLUMNS.find((c) => c.id === columnId)?.label ?? columnId;
+export function columnLabel(columnId: PipelineColumnId): string {
+  return PIPELINE_COLUMNS.find((c) => c.id === columnId)?.label ?? columnId;
 }
 
 export type ScoreTier = {
@@ -92,7 +99,7 @@ export type BoardLead = {
   intentScore: number;
   intentSignals: string[];
   stage: PipelineStage;
-  columnId: MonacoColumnId;
+  columnId: PipelineColumnId;
   value: number;
   motionScore?: number;
   dealValueExplanation?: string;
@@ -207,7 +214,7 @@ export function toBoardLead(
 }
 
 export function groupLeadsByColumn(leads: BoardLead[]) {
-  return MONACO_COLUMNS.map((column) => {
+  return PIPELINE_COLUMNS.map((column) => {
     const items = leads
       .filter((l) => l.columnId === column.id)
       .sort((a, b) => b.value - a.value);

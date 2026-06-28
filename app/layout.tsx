@@ -19,9 +19,9 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Launchpad",
+  title: "Autogrow",
   description:
-    "Drop your website URL. Get personas, scored leads, outbound emails, and inbound content — per buyer segment, in one run.",
+    "The growth engine that runs itself. Drop your website URL and get personas, scored leads, outbound emails, and inbound content — per buyer segment, in one run.",
 };
 
 export default function RootLayout({

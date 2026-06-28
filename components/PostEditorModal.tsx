@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
+import { BrandedPoster } from "./BrandedPoster";
 
 const platformLabels: Record<Doc<"posts">["platform"], string> = {
   linkedin: "LinkedIn",
@@ -27,6 +27,9 @@ const PLATFORM_ORDER: Doc<"posts">["platform"][] = [
 type PostEditorModalProps = {
   posts: Doc<"posts">[];
   personaName: string;
+  companyName?: string;
+  logoUrl?: string;
+  brandColor?: string;
   initialPostId?: Id<"posts">;
   onClose: () => void;
   onPosted?: (postId: Id<"posts">) => void;
@@ -36,6 +39,9 @@ type PostEditorModalProps = {
 export function PostEditorModal({
   posts,
   personaName,
+  companyName,
+  logoUrl,
+  brandColor,
   initialPostId,
   onClose,
   onPosted,
@@ -298,13 +304,16 @@ export function PostEditorModal({
                     Previous
                   </p>
                   <div className="overflow-hidden rounded-lg border border-inherit">
-                    <Image
-                      src={activePost.previousPosterUrl}
+                    <BrandedPoster
+                      posterUrl={activePost.previousPosterUrl}
+                      companyName={companyName}
+                      logoUrl={logoUrl}
+                      brandColor={brandColor}
                       alt="Previous poster"
+                      className="aspect-square w-full"
+                      imageClassName="aspect-square w-full object-cover"
                       width={256}
                       height={256}
-                      className="aspect-square w-full object-cover"
-                      unoptimized
                     />
                   </div>
                 </div>
@@ -313,14 +322,17 @@ export function PostEditorModal({
                     New
                   </p>
                   <div className="overflow-hidden rounded-lg border-2 border-emerald-500/60">
-                    <Image
+                    <BrandedPoster
                       key={activePost.posterUrl}
-                      src={activePost.posterUrl}
+                      posterUrl={activePost.posterUrl}
+                      companyName={companyName}
+                      logoUrl={logoUrl}
+                      brandColor={brandColor}
                       alt="New poster"
+                      className="aspect-square w-full"
+                      imageClassName="aspect-square w-full object-cover"
                       width={256}
                       height={256}
-                      className="aspect-square w-full object-cover"
-                      unoptimized
                     />
                   </div>
                 </div>
@@ -328,14 +340,16 @@ export function PostEditorModal({
             ) : (
               <div className="overflow-hidden rounded-lg border border-inherit">
                 {activePost.posterUrl ? (
-                  <Image
+                  <BrandedPoster
                     key={activePost.posterUrl}
-                    src={activePost.posterUrl}
-                    alt=""
+                    posterUrl={activePost.posterUrl}
+                    companyName={companyName}
+                    logoUrl={logoUrl}
+                    brandColor={brandColor}
+                    className="aspect-square w-full"
+                    imageClassName="aspect-square w-full object-cover"
                     width={512}
                     height={512}
-                    className="aspect-square w-full object-cover"
-                    unoptimized
                   />
                 ) : (
                   <div className={`flex aspect-square items-center justify-center text-sm ${muted}`}>

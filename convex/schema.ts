@@ -30,6 +30,7 @@ export default defineSchema({
     brandCompanyName: v.optional(v.string()),
     brandTagline: v.optional(v.string()),
     brandColors: v.optional(v.array(v.string())),
+    brandLogoUrl: v.optional(v.string()),
     brandVisualStyle: v.optional(v.string()),
     brandImageryNotes: v.optional(v.string()),
     brandSocialStudy: v.optional(brandSocialStudyValidator),
@@ -97,6 +98,7 @@ export default defineSchema({
     brandCompanyName: v.optional(v.string()),
     brandTagline: v.optional(v.string()),
     brandColors: v.optional(v.array(v.string())),
+    brandLogoUrl: v.optional(v.string()),
     brandVisualStyle: v.optional(v.string()),
     brandImageryNotes: v.optional(v.string()),
     brandSocialStudy: v.optional(brandSocialStudyValidator),
@@ -161,12 +163,38 @@ export default defineSchema({
     touches: v.array(
       v.object({
         step: v.number(),
+        label: v.optional(v.string()),
         body: v.string(),
+        waitDays: v.optional(v.number()),
       }),
     ),
     approved: v.boolean(),
     sent: v.boolean(),
   }).index("by_persona", ["personaId"]),
+
+  emailSends: defineTable({
+    leadId: v.id("leads"),
+    emailId: v.id("emails"),
+    runId: v.id("runs"),
+    personaId: v.id("personas"),
+    step: v.number(),
+    label: v.optional(v.string()),
+    subject: v.string(),
+    body: v.string(),
+    scheduledAt: v.number(),
+    status: v.union(
+      v.literal("scheduled"),
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
+    sentAt: v.optional(v.number()),
+    agentMailMessageId: v.optional(v.string()),
+    error: v.optional(v.string()),
+  })
+    .index("by_lead", ["leadId"])
+    .index("by_lead_step", ["leadId", "step"])
+    .index("by_status_scheduled", ["status", "scheduledAt"]),
 
   posts: defineTable({
     personaId: v.id("personas"),
@@ -187,6 +215,8 @@ export default defineSchema({
     postizId: v.optional(v.string()),
     externalPostId: v.optional(v.string()),
     previousPosterUrl: v.optional(v.string()),
+    campaignKey: v.optional(v.string()),
+    eventLabel: v.optional(v.string()),
   })
     .index("by_persona", ["personaId"])
     .index("by_run", ["runId"]),

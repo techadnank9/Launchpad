@@ -9,6 +9,7 @@ export function brandFromRun(
     brandCompanyName?: string;
     brandTagline?: string;
     brandColors?: string[];
+    brandLogoUrl?: string;
     brandVisualStyle?: string;
     brandImageryNotes?: string;
     brandSocialStudy?: BrandSocialStudy;
@@ -37,5 +38,6 @@ export function brandFromRun(
     visualStyle: run.brandVisualStyle,
     imageryNotes: run.brandImageryNotes,
     socialStudy: run.brandSocialStudy,
+    logoUrl: run.brandLogoUrl,
   };
 }

@@ -1,8 +1,8 @@
-# Launchpad
+# Autogrow
 
-**Paste your URL. We build your entire go-to-market.**
+**The growth engine that runs itself.**
 
-Launchpad is a zero-setup, agentic GTM platform built for the Orange Slice AI Growth Hackathon (June 27–28, 2026). A founder pastes their website URL and within minutes has a live outbound pipeline and a full inbound content calendar, automatically segmented by every viable buyer persona the AI detects.
+Autogrow is a zero-setup, agentic GTM platform built for the Orange Slice AI Growth Hackathon (June 27–28, 2026). A founder pastes their website URL and within minutes has a live outbound pipeline and a full inbound content calendar, automatically segmented by every viable buyer persona the AI detects.
 
 ## Features
 
@@ -67,7 +67,7 @@ npm run dev
 
 #### Orange Slice (npm package — not MCP)
 
-[Orange Slice](https://www.npmjs.com/package/orangeslice) is a sales enrichment SDK with access to 30+ data providers (Apollo, PeopleDataLabs, Crustdata, Hunter, etc.) for company enrichment, contact lookup, email verification, web scraping, and more. Launchpad calls it from Convex backend scripts via the installed `orangeslice` package — not through MCP.
+[Orange Slice](https://www.npmjs.com/package/orangeslice) is a sales enrichment SDK with access to 30+ data providers (Apollo, PeopleDataLabs, Crustdata, Hunter, etc.) for company enrichment, contact lookup, email verification, web scraping, and more. Autogrow calls it from Convex backend scripts via the installed `orangeslice` package — not through MCP.
 
 **Setup:**
 
@@ -82,7 +82,7 @@ npm run orangeslice:import
 npm run env:sync
 ```
 
-The key is stored at `~/.config/orangeslice/config.json` (starts with `osk_`). Launchpad uses Orange Slice for intent scoring: PredictLeads job openings, company news events, and Reddit/web mentions per lead.
+The key is stored at `~/.config/orangeslice/config.json` (starts with `osk_`). Autogrow uses Orange Slice for intent scoring: PredictLeads job openings, company news events, and Reddit/web mentions per lead.
 
 ### Run Development
 
@@ -106,7 +106,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## 60-Second Demo Script
 
-1. Open Launchpad, paste a URL (e.g. a well-known bike brand)
+1. Open Autogrow, paste a URL (e.g. a well-known bike brand)
 2. Hit **Go** — watch persona cards appear (3–5 buyer types)
 3. Click into a persona — lead list populates with intent scores, email sequence ready
 4. Click another persona — different leads, tone, poster generating live

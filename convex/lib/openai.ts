@@ -36,7 +36,60 @@ export type BrandContext = BrandKit & {
   productSummary: string;
   valueProp: string;
   socialStudy?: BrandSocialStudy;
+  logoUrl?: string;
 };
+
+export type CampaignContext = {
+  key: string;
+  label: string;
+  posterBrief: string;
+  captionHook: string;
+};
+
+function formatBrandColorBrief(colors: string[]): string {
+  const lines = colors.map((color, index) => {
+    const role =
+      index === 0 ? "Primary" : index === 1 ? "Secondary" : `Accent ${index}`;
+    return `- ${role}: ${color}`;
+  });
+
+  return `BRAND COLOR PALETTE (mandatory — at least 60% of the image must use these exact colors):
+${lines.join("\n")}
+Use them for backgrounds, gradients, props, wardrobe, lighting gels, and UI accents.
+Do NOT introduce off-brand palettes or clashing hues unless the user explicitly asked for a holiday motif layered on top.`;
+}
+
+function formatCampaignBlock(campaign?: CampaignContext): string {
+  if (!campaign || campaign.key === "evergreen") return "";
+  return `
+
+SEASONAL EVENT CAMPAIGN — "${campaign.label}":
+- Creative direction: ${campaign.posterBrief}
+- Caption angle: ${campaign.captionHook}
+- The post must feel timely for ${campaign.label} while staying unmistakably on-brand.`;
+}
+
+function formatPhotographyStyleBlock(): string {
+  return `VISUAL MEDIUM (strict — violations fail the brief):
+- Photorealistic editorial or lifestyle PHOTOGRAPHY only
+- NO animation, illustration, cartoon, anime, vector art, clip-art, or comic style
+- NO 3D renders, CGI, Unreal/Octane look, glowing UI mockups, or sci-fi holograms
+- NO SaaS dashboard screenshots, icon grids, org-chart diagrams, or "HR / IT / Finance" connector graphics
+- NO exaggerated motion, particle effects, or "animated" marketing graphics
+- Real environments, natural lighting, believable depth of field like a professional brand photoshoot`;
+}
+
+function formatIntegratedBrandBlock(brand: BrandContext): string {
+  const colorBrief = formatBrandColorBrief(brand.primaryColors);
+  return `BRAND INTEGRATION (mandatory — must feel shot for ${brand.companyName}, not a template with a logo pasted on):
+${colorBrief}
+- Color-grade the ENTIRE frame in this palette — walls, light, wardrobe, props, sky
+- "${brand.companyName}" appears ONCE as natural in-scene typography (office signage, notebook, tote, conference room wall, phone lock screen blur) — elegant, readable, NOT a footer strip or banner
+- Visual identity cues: ${brand.imageryNotes}
+- Match brand mood: ${brand.visualStyle}
+- NO full-width bottom bar, NO logo slab, NO empty "safe zone" reserved for post-production branding
+- Do NOT invent a fake logo icon — only the company wordmark as environmental type if needed`;
+}
 
 function getClient(): OpenAI {
   return new OpenAI({ apiKey: requireEnv("OPENAI_API_KEY") });
@@ -96,7 +149,7 @@ export async function analyzeSiteWithGPT(
 }
 For each persona, set dealSizeMinUsd and dealSizeMaxUsd to a REALISTIC annual contract range if this company sold to that buyer (not generic $65k — indie café owner might be $500–$4k/yr, enterprise chain $25k–$120k/yr). Base ranges on what the website actually sells and who would buy it.
 Extract real brand colors and visual identity from the site content and meta tags — not generic defaults.
-Each persona posterStyle must reference the brand's colors and imagery while tailoring mood to that persona.
+Each persona posterStyle must reference the brand's colors and imagery while tailoring mood to that persona. Poster art direction must specify photorealistic photography — never illustration or animation.
 Return 3-5 distinct buyer personas.`,
       },
       {
@@ -133,11 +186,82 @@ Return 3-5 distinct buyer personas.`,
   return parsed;
 }
 
-export async function generateEmailSequence(
-  productSummary: string,
-  persona: PersonaResult,
-): Promise<{ subject: string; touches: { step: number; body: string }[] }> {
+export type EmailTouch = {
+  step: number;
+  label?: string;
+  body: string;
+  waitDays?: number;
+};
+
+export type LeadPersonalization = {
+  firstName: string;
+  fullName: string;
+  title: string;
+  company: string;
+  intentSignals: string[];
+};
+
+export async function personalizeEmailForLead(args: {
+  brand: BrandContext;
+  persona: PersonaResult;
+  touch: EmailTouch;
+  subject: string;
+  lead: LeadPersonalization;
+  step: number;
+}): Promise<{ subject: string; body: string }> {
   const client = getClient();
+  const intentHook =
+    args.lead.intentSignals[0] ??
+    args.persona.painPoints[0] ??
+    "their current priorities";
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `Rewrite this outbound email for ONE specific person. Return JSON: {"subject":"...","body":"..."}.
+- Use their first name in the greeting only
+- Reference their title (${args.lead.title}) and company (${args.lead.company}) naturally — not in the subject line
+- Weave in this intent signal: ${intentHook}
+- Keep the same CTA and sequence role (step ${args.step})
+- Quirky, human, 60–120 words — no corporate filler
+- Do NOT use placeholders like {first_name}; write the final copy`,
+      },
+      {
+        role: "user",
+        content: `From: ${args.brand.companyName}
+Persona: ${args.persona.name}
+Recipient: ${args.lead.fullName}, ${args.lead.title} @ ${args.lead.company}
+
+Template subject: ${args.subject}
+Template body:
+${args.touch.body}`,
+      },
+    ],
+    temperature: 0.85,
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    return { subject: args.subject, body: args.touch.body };
+  }
+  const parsed = JSON.parse(content) as { subject?: string; body?: string };
+  return {
+    subject: parsed.subject?.trim() || args.subject,
+    body: parsed.body?.trim() || args.touch.body,
+  };
+}
+
+export async function generateEmailSequence(
+  brand: BrandContext,
+  persona: PersonaResult,
+): Promise<{ subject: string; touches: EmailTouch[] }> {
+  const client = getClient();
+  const socialBlock = brand.socialStudy
+    ? `\nBrand social voice (match this energy):\n${formatSocialStudyForPrompt(brand.socialStudy).slice(0, 1200)}`
+    : "";
 
   const response = await client.chat.completions.create({
     model: "gpt-4o",
@@ -145,15 +269,47 @@ export async function generateEmailSequence(
     messages: [
       {
         role: "system",
-        content: `Write a cold email sequence. Return JSON:
-{"subject": "...", "touches": [{"step": 1, "body": "..."}, {"step": 2, "body": "..."}, {"step": 3, "body": "..."}]}`,
+        content: `You write outbound email sequences for ${brand.companyName}. Return JSON only:
+{"subject":"...","touches":[{"step":1,"label":"Opener","body":"...","waitDays":0},{"step":2,"label":"Follow-up","body":"...","waitDays":3},{"step":3,"label":"Last ping","body":"...","waitDays":3}]}
+
+SEQUENCE STRUCTURE (drip timeline — only touch 1 sends immediately):
+- Touch 1 = cold open — hook them in 4 sentences max (waitDays: 0)
+- Touch 2 = follow-up — new angle after no reply (waitDays: 3 business days)
+- Touch 3 = break-up — short, human close-the-loop (waitDays: 3 business days)
+
+PERSONALIZATION PLACEHOLDERS (use in every body):
+- {first_name} in greeting only
+- {company} and {title} woven into one sentence naturally
+- {intent_signal} — reference a plausible pain based on persona (will be replaced with real signal at send time)
+
+VOICE (strict):
+- Quirky, catchy, and VERY specific to this persona's pain — not generic SaaS copy
+- Sound like a sharp founder or AE who did their homework, not a marketing blast
+- Match tone: ${persona.contentTone}
+- Use {first_name} once in the greeting only — also use {company}, {title}, {intent_signal} where natural
+- Subject line: short, specific, curiosity or pattern interrupt (under 8 words ideal)
+- Each body: 60–120 words, scannable, one clear CTA
+- Reference ${brand.companyName} naturally; weave in: ${brand.valueProp}
+
+BANNED: revolutionize, streamline, leverage, synergy, cutting-edge, hope this message finds you, touching base, circle back, game-changer, excited to connect`,
       },
       {
         role: "user",
-        content: `Product: ${productSummary}\nPersona: ${persona.name}\nAngle: ${persona.messagingAngle}\nPain points: ${persona.painPoints.join(", ")}`,
+        content: `Brand: ${brand.companyName} — ${brand.tagline}
+Site: ${brand.siteUrl}
+Product: ${brand.productSummary}
+Value prop: ${brand.valueProp}
+
+Persona: ${persona.name}
+Messaging angle: ${persona.messagingAngle}
+Pain points: ${persona.painPoints.join("; ")}
+Who we target: ${persona.outboundTargets}
+${socialBlock}
+
+Write a 3-touch sequence that feels written for ONE real ${persona.name} — not a template.`,
       },
     ],
-    temperature: 0.8,
+    temperature: 0.92,
   });
 
   const content = response.choices[0]?.message?.content;
@@ -161,7 +317,7 @@ export async function generateEmailSequence(
 
   const parsed = JSON.parse(content) as {
     subject: string;
-    touches: { step: number; body: string }[];
+    touches: EmailTouch[];
   };
   if (!parsed.subject || !parsed.touches?.length) {
     throw new Error("OpenAI returned an invalid email sequence");
@@ -172,11 +328,13 @@ export async function generateEmailSequence(
 export async function generateCaption(
   brand: BrandContext,
   persona: PersonaResult,
+  campaign?: CampaignContext,
 ): Promise<string> {
   const client = getClient();
   const socialBlock = brand.socialStudy
     ? `\n\nEXISTING BRAND SOCIAL POSTS (study and match this voice — do not sound generic):\n${formatSocialStudyForPrompt(brand.socialStudy)}`
     : "";
+  const campaignBlock = campaign ? formatCampaignBlock(campaign) : "";
 
   const response = await client.chat.completions.create({
     model: "gpt-4o",
@@ -190,10 +348,11 @@ export async function generateCaption(
         role: "user",
         content: `Brand: ${brand.companyName} (${brand.siteUrl})
 Tagline: ${brand.tagline}
+Brand colors: ${brand.primaryColors.join(", ")}
 Product: ${brand.productSummary}
 Persona: ${persona.name}
 Angle: ${persona.messagingAngle}
-Tone: ${persona.contentTone}${socialBlock}`,
+Tone: ${persona.contentTone}${campaignBlock}${socialBlock}`,
       },
     ],
     temperature: 0.75,
@@ -207,36 +366,34 @@ Tone: ${persona.contentTone}${socialBlock}`,
 export async function generatePosterBytes(
   brand: BrandContext,
   persona: PersonaResult,
+  campaign?: CampaignContext,
 ): Promise<Uint8Array> {
   const client = getClient();
   const model = optionalEnv("OPENAI_IMAGE_MODEL") ?? "gpt-image-1";
 
-  const colorList = brand.primaryColors.join(", ");
   const socialBlock = brand.socialStudy
     ? `
 
 THEIR EXISTING SOCIAL CONTENT (match this look — study before creating):
 ${formatSocialStudyForPrompt(brand.socialStudy)}`
     : "";
+  const campaignBlock = campaign ? formatCampaignBlock(campaign) : "";
 
   const prompt = `On-brand social media marketing poster for "${brand.companyName}" (${brand.siteUrl}).
 
-BRAND IDENTITY — follow exactly:
-- Company: ${brand.companyName}
-- Tagline vibe: ${brand.tagline}
-- Brand colors (use prominently in background, accents, and lighting): ${colorList}
-- Visual style: ${brand.visualStyle}
-- Brand imagery/motifs: ${brand.imageryNotes}${socialBlock}
+${formatIntegratedBrandBlock(brand)}
 
 CAMPAIGN (persona-specific layer):
 - Target persona: ${persona.name}
 - Message: ${persona.messagingAngle}
 - Art direction: ${persona.posterStyle}
-- Product context: ${brand.productSummary}
+- Product context: ${brand.productSummary}${campaignBlock}${socialBlock}
 
-The poster must look like it belongs in this brand's EXISTING social feed — same photography style, color grading, and subject matter as their real posts. Not a generic stock template. Persona-specific mood is OK but brand recognition comes first.
+${formatPhotographyStyleBlock()}
 
-Square 1:1 ad layout. Professional, polished, eye-catching. NO readable text, letters, words, or logos in the image.`;
+The poster must look like it belongs in ${brand.companyName}'s EXISTING social feed — same photography style, color grading, and subject matter as their real posts.
+
+Square 1:1 composition. Brand identity integrated throughout the full frame.`;
 
   const response = await client.images.generate({
     model,
@@ -308,15 +465,16 @@ export async function editPosterBytes(args: {
 }): Promise<Uint8Array> {
   const client = getClient();
   const model = optionalEnv("OPENAI_IMAGE_MODEL") ?? "gpt-image-1";
-  const colorList = args.brand.primaryColors.join(", ");
 
   const prompt = `Edit this ${args.brand.companyName} social media poster.
 
 Make these changes: ${args.instructions}
 
-Keep: brand colors (${colorList}), ${args.brand.visualStyle} style, ${args.persona.posterStyle} art direction, and overall on-brand look unless a change requires otherwise.
+${formatIntegratedBrandBlock(args.brand)}
+Visual style: ${args.brand.visualStyle}. Art direction: ${args.persona.posterStyle}.
+${formatPhotographyStyleBlock()}
 
-Do not add readable text, letters, words, or logos.`;
+Keep brand identity integrated across the full frame — no footer bar or pasted logo slab.`;
 
   const imageFile = await toFile(args.imageBytes, "poster.png", {
     type: "image/png",
@@ -363,12 +521,13 @@ export async function revisePosterBytes(args: {
 
   const client = getClient();
   const model = optionalEnv("OPENAI_IMAGE_MODEL") ?? "gpt-image-1";
-  const colorList = args.brand.primaryColors.join(", ");
 
   const prompt = `On-brand social media poster for ${args.brand.companyName}.
-Colors: ${colorList}. Style: ${args.brand.visualStyle}. Persona: ${args.persona.name}.
+${formatIntegratedBrandBlock(args.brand)}
+Style: ${args.brand.visualStyle}. Persona: ${args.persona.name}.
 Changes: ${args.instructions}
-Square 1:1. NO readable text or logos.`;
+${formatPhotographyStyleBlock()}
+Square 1:1. Brand woven through the full frame — no footer bar.`;
 
   const response = await client.images.generate({
     model,

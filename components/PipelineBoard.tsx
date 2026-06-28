@@ -2,20 +2,19 @@
 
 import { useCallback, useMemo, useState } from "react";
 import {
-  MONACO_COLUMNS,
+  PIPELINE_COLUMNS,
   type BoardLead,
-  type MonacoColumnId,
-  defaultStageForColumn,
+  type PipelineColumnId,
   formatCurrency,
   groupLeadsByColumn,
-} from "@/lib/monaco-board";
+} from "@/lib/pipeline-board";
 import { ScoreBadge } from "./ScoreBadge";
 
 type PipelineBoardProps = {
   leads: BoardLead[];
   loading?: boolean;
   onSelectLead: (lead: BoardLead) => void;
-  onMoveLead: (leadId: string, columnId: MonacoColumnId) => Promise<void>;
+  onMoveLead: (leadId: string, columnId: PipelineColumnId) => Promise<void>;
 };
 
 export function PipelineBoard({
@@ -25,7 +24,7 @@ export function PipelineBoard({
   onMoveLead,
 }: PipelineBoardProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<MonacoColumnId | null>(null);
+  const [dropTarget, setDropTarget] = useState<PipelineColumnId | null>(null);
 
   const columns = useMemo(
     () => (leads.length ? groupLeadsByColumn(leads) : null),
@@ -33,7 +32,7 @@ export function PipelineBoard({
   );
 
   const handleDrop = useCallback(
-    async (columnId: MonacoColumnId) => {
+    async (columnId: PipelineColumnId) => {
       if (!draggingId) return;
       await onMoveLead(draggingId, columnId);
       setDraggingId(null);
@@ -62,8 +61,8 @@ export function PipelineBoard({
           Pipeline fills as leads arrive
         </p>
         <p className="mx-auto mt-3 max-w-md text-sm text-zinc-400">
-          Fiber AI and Orange Slice score leads per persona — they land in
-          Discovery, Nurture, and Proposal automatically.
+          New accounts land in Discovery. After outreach they move to Nurture.
+          Drag cards manually to Proposal or Closed Won when you’re ready.
         </p>
       </div>
     );
@@ -102,6 +101,9 @@ export function PipelineBoard({
             </div>
             <p className="mt-1 font-mono text-sm tabular-nums text-zinc-400">
               {formatCurrency(column.total)}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-zinc-600">
+              {column.hint}
             </p>
           </header>
 
@@ -201,4 +203,4 @@ function CompanyMark({ name }: { name: string }) {
   );
 }
 
-// defaultStageForColumn is exported from @/lib/monaco-board
+// defaultStageForColumn is exported from @/lib/pipeline-board

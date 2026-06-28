@@ -3,11 +3,11 @@
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { brandFromRun } from "../lib/brandContext";
 import {
   generateCaption,
   generatePosterBytes,
 } from "../lib/openai";
-import { brandFromRun } from "../lib/brandContext";
 
 export const run = internalAction({
   args: {
@@ -52,6 +52,13 @@ export const run = internalAction({
         personaId: args.personaId,
         caption,
         posterUrl,
+        campaignKey: "evergreen",
+      });
+
+      await ctx.scheduler.runAfter(0, internal.agents.eventCampaignAgent.run, {
+        runId: args.runId,
+        personaId: args.personaId,
+        productSummary: args.productSummary,
       });
     } catch (error) {
       await ctx.runMutation(internal.personas.updatePersonaStatus, {

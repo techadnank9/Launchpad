@@ -94,7 +94,8 @@ export function CalendarView({ runId, siteId, variant = "light" }: CalendarViewP
           </button>
         </div>
         <div className={`flex flex-wrap gap-3 text-xs ${t.muted}`}>
-          <Legend dot="bg-violet-500" label="Posts" />
+          <Legend dot="bg-violet-500" label="Evergreen posts" />
+          <Legend dot="bg-amber-500" label="Event campaigns" />
           <Legend dot="bg-emerald-500" label="Meetings" />
         </div>
       </div>
@@ -149,12 +150,14 @@ export function CalendarView({ runId, siteId, variant = "light" }: CalendarViewP
                       className={`truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight ${
                         item.kind === "meeting"
                           ? "bg-emerald-100 text-emerald-950"
-                          : "bg-violet-100 text-violet-950"
+                          : item.eventLabel
+                            ? "bg-amber-100 text-amber-950"
+                            : "bg-violet-100 text-violet-950"
                       }`}
                     >
                       {item.kind === "meeting"
                         ? "Call"
-                        : item.heading.slice(0, 22)}
+                        : (item.eventLabel ?? item.heading).slice(0, 22)}
                     </div>
                   ))}
                   {grouped.length > 3 && (
@@ -181,7 +184,7 @@ export function CalendarView({ runId, siteId, variant = "light" }: CalendarViewP
               item.kind === "meeting" ? (
                 <MeetingRow key={item.event.id} event={item.event} isDark={isDark} />
               ) : (
-                <PostCampaignRow key={item.personaId} campaign={item} isDark={isDark} />
+                <PostCampaignRow key={cellKey(item)} campaign={item} isDark={isDark} />
               ),
             )}
           </ul>
@@ -192,7 +195,9 @@ export function CalendarView({ runId, siteId, variant = "light" }: CalendarViewP
 }
 
 function cellKey(item: DayDisplayItem): string {
-  return item.kind === "meeting" ? item.event.id : item.personaId;
+  return item.kind === "meeting"
+    ? item.event.id
+    : `${item.personaId}:${item.campaignKey ?? "evergreen"}`;
 }
 
 function Legend({ dot, label }: { dot: string; label: string }) {
@@ -218,13 +223,33 @@ function PostCampaignRow({
 
   return (
     <li className={`flex items-start gap-3 rounded-md border px-3 py-2 ${isDark ? "border-white/10" : "border-[#ecece7]"}`}>
-      <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-violet-500" />
+      {campaign.posterUrl ? (
+        <img
+          src={campaign.posterUrl}
+          alt=""
+          className="h-12 w-12 shrink-0 rounded-md object-cover"
+        />
+      ) : (
+        <span
+          className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+            campaign.eventLabel ? "bg-amber-500" : "bg-violet-500"
+          }`}
+        />
+      )}
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium leading-snug ${isDark ? "text-white" : "text-[#0a0a0a]"}`}>
-          {campaign.heading}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={`text-sm font-medium leading-snug ${isDark ? "text-white" : "text-[#0a0a0a]"}`}>
+            {campaign.heading}
+          </p>
+          {campaign.eventLabel && (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${isDark ? "bg-amber-500/15 text-amber-200" : "bg-amber-100 text-amber-900"}`}>
+              Event
+            </span>
+          )}
+        </div>
         <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-[#52525b]"}`}>
-          {campaign.personaName} · {timeRange}
+          {campaign.personaName} · {timeRange} ·{" "}
+          {campaign.platforms.map((p) => p.platform).join(", ")}
         </p>
         {campaign.caption && campaign.caption !== campaign.heading && (
           <p className={`mt-1 line-clamp-2 text-xs ${isDark ? "text-zinc-300" : "text-[#3f3f46]"}`}>

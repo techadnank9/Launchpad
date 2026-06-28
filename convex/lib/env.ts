@@ -13,7 +13,7 @@ export function optionalEnv(name: string): string | undefined {
   return value?.trim() || undefined;
 }
 
-/** Postiz is optional — without it, posts stay in Launchpad's calendar as drafts. */
+/** Postiz is optional — without it, posts stay in Autogrow's calendar as drafts. */
 export function isPostizConfigured(): boolean {
   return Boolean(
     optionalEnv("POSTIZ_API_KEY") && optionalEnv("POSTIZ_BASE_URL"),
@@ -90,6 +90,31 @@ export function getToolkitConnectInfo(
   }
 
   return { connectAvailable: true, dashboardConnectUrl };
+}
+
+/** AgentMail — optional; outbound drip sends via dedicated inbox. */
+export function isAgentMailConfigured(): boolean {
+  return Boolean(
+    optionalEnv("AGENTMAIL_API_KEY") && optionalEnv("AGENTMAIL_INBOX_ID"),
+  );
+}
+
+export function getAgentMailReplyTo(): string | undefined {
+  return optionalEnv("AGENTMAIL_REPLY_TO");
+}
+
+/** All outbound drips deliver here — never to Fiber/real prospect emails. */
+export function getAgentMailSandboxInbox(): string {
+  return (
+    optionalEnv("AGENTMAIL_SANDBOX_INBOX") ??
+    optionalEnv("AGENTMAIL_DEMO_RECIPIENT") ??
+    "autogrowreciever@agentmail.to"
+  );
+}
+
+/** @deprecated Use getAgentMailSandboxInbox */
+export function getAgentMailDemoRecipient(): string {
+  return getAgentMailSandboxInbox();
 }
 
 /** Orange Slice SDK expects ORANGESLICE_API_KEY; ORANGE_SLICE_API_KEY is kept for compatibility. */

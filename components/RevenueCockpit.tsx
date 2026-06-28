@@ -1,24 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   defaultStageForColumn,
   toBoardLead,
-  type MonacoColumnId,
-} from "@/lib/monaco-board";
+  type PipelineColumnId,
+} from "@/lib/pipeline-board";
 import { AccountsTable } from "./AccountsTable";
 import { ClientSwitcher } from "./ClientSwitcher";
 import { ContentCalendar } from "./ContentCalendar";
+import { GrowthBrainView } from "./GrowthBrainView";
 import { LeadDrawer } from "./LeadDrawer";
+import { OutboundView } from "./OutboundView";
 import { PipelineBoard } from "./PipelineBoard";
-import { RunProgress, getHostname } from "./RunProgress";
+import { RunOnboarding } from "./RunOnboarding";
+import { getHostname } from "./RunProgress";
+import { buildObsidianVault } from "@/lib/obsidian-vault";
+import { downloadObsidianVault } from "@/lib/download-vault-zip";
 
-const MODES = ["Pipeline", "Accounts", "Publish"] as const;
+const MODES = ["Brain", "Pipeline", "Accounts", "Outbound", "Publish"] as const;
 type Mode = (typeof MODES)[number];
+
+const TAB_TO_MODE: Record<string, Mode> = {
+  brain: "Brain",
+  pipeline: "Pipeline",
+  accounts: "Accounts",
+  outbound: "Outbound",
+  publish: "Publish",
+};
+
+type RunView = "onboarding" | "workspace";
 
 const statusLabels: Record<string, string> = {
   pending: "Starting",
@@ -41,7 +57,21 @@ type RevenueCockpitProps = {
   onExport?: () => void;
 };
 
-export function RevenueCockpit({
+export function RevenueCockpit(props: RevenueCockpitProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
+          <p className="text-sm text-zinc-500">Loading your GTM workspace…</p>
+        </div>
+      }
+    >
+      <RevenueCockpitInner {...props} />
+    </Suspense>
+  );
+}
+
+function RevenueCockpitInner({
   runId,
   run,
   siteMemory,
@@ -49,14 +79,32 @@ export function RevenueCockpit({
   onExport,
 }: RevenueCockpitProps) {
   const typedRunId = runId as Id<"runs">;
+  const searchParams = useSearchParams();
   const leads = useQuery(api.leads.listByRun, { runId: typedRunId });
   const updateStage = useMutation(api.leads.updatePipelineStage);
+  const enrichContactEmails = useMutation(api.runs.enrichContactEmails);
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<Mode>("Pipeline");
+  const [mode, setMode] = useState<Mode>("Brain");
+  const [runView, setRunView] = useState<RunView>("onboarding");
   const [personaFilter, setPersonaFilter] = useState<Id<"personas"> | "all">(
     "all",
   );
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const lead = searchParams.get("lead");
+
+    if (tab && TAB_TO_MODE[tab]) {
+      setRunView("workspace");
+      setMode(TAB_TO_MODE[tab]);
+    }
+
+    if (lead) {
+      setSelectedLeadId(lead);
+    }
+  }, [searchParams]);
 
   const hostname = getHostname(run.url);
   const siteId = run.siteId ?? siteMemory?.site._id;
@@ -85,13 +133,27 @@ export function RevenueCockpit({
       });
   }, [leads, personaFilter, personas, personaNames]);
 
+  const exportLeads = useMemo(() => {
+    if (!leads) return [];
+    const personaById = Object.fromEntries((personas ?? []).map((p) => [p._id, p]));
+    return leads.map((l) => {
+      const p = personaById[l.personaId];
+      return toBoardLead(l, p ?? { name: personaNames[l.personaId] });
+    });
+  }, [leads, personas, personaNames]);
+
   const selectedLead = useMemo(
     () => boardLeads.find((l) => l.id === selectedLeadId) ?? null,
     [boardLeads, selectedLeadId],
   );
 
+  const leadsMissingEmail = useMemo(
+    () => boardLeads.filter((lead) => !lead.email && lead.linkedin).length,
+    [boardLeads],
+  );
+
   const moveLead = useCallback(
-    async (leadId: string, columnId: MonacoColumnId) => {
+    async (leadId: string, columnId: PipelineColumnId) => {
       await updateStage({
         leadId: leadId as Id<"leads">,
         pipelineStage: defaultStageForColumn(columnId),
@@ -100,13 +162,32 @@ export function RevenueCockpit({
     [updateStage],
   );
 
-  const showProgressHero =
-    isRunning &&
-    (personas === undefined || personas.length === 0) &&
-    (leads === undefined || leads.length === 0);
-
   const personasComplete =
     personas?.filter((p) => p.status === "complete").length ?? 0;
+
+  const hasPersonas = (personas?.length ?? 0) > 0;
+  const onboardingPhase: "checklist" | "brain" =
+    hasPersonas && run.status !== "pending" && run.status !== "analyzing"
+      ? "brain"
+      : "checklist";
+
+  const showOnboarding = runView === "onboarding";
+
+  const enterWorkspace = useCallback(() => {
+    setRunView("workspace");
+    setMode("Pipeline");
+  }, []);
+
+  const handleObsidianExport = useCallback(async () => {
+    if (!personas || personas.length === 0) return;
+    const vault = buildObsidianVault({
+      run,
+      personas,
+      leads: exportLeads,
+      hostname,
+    });
+    await downloadObsidianVault(vault);
+  }, [run, personas, exportLeads, hostname]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -117,7 +198,7 @@ export function RevenueCockpit({
               href="/"
               className="font-[family-name:var(--font-display)] text-xl tracking-tight text-white"
             >
-              Launchpad
+              Autogrow
             </Link>
             <span className="hidden truncate font-mono text-sm text-zinc-500 sm:inline">
               {hostname}
@@ -162,6 +243,27 @@ export function RevenueCockpit({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {runView === "workspace" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRunView("onboarding");
+                    setMode("Brain");
+                  }}
+                  className="rounded-md border border-white/15 px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/5"
+                >
+                  Growth brain
+                </button>
+              )}
+              {run.status === "complete" && personas && personas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleObsidianExport}
+                  className="rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-sm text-violet-200 hover:bg-violet-500/20"
+                >
+                  Export Obsidian vault
+                </button>
+              )}
               {run.status === "complete" && onExport && (
                 <button
                   type="button"
@@ -175,24 +277,26 @@ export function RevenueCockpit({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="flex gap-1 rounded-lg bg-white/5 p-0.5">
-              {MODES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                    mode === m
-                      ? "bg-white text-black"
-                      : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+            {runView === "workspace" && (
+              <div className="flex gap-1 rounded-lg bg-white/5 p-0.5">
+                {MODES.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                      mode === m
+                        ? "bg-white text-black"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {personas && personas.length > 0 && (
+            {runView === "workspace" && personas && personas.length > 0 && (
               <div className="flex flex-wrap gap-1.5 border-l border-white/10 pl-2">
                 <PersonaChip
                   active={personaFilter === "all"}
@@ -220,25 +324,40 @@ export function RevenueCockpit({
             {run.brandCompanyName ?? hostname}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
-            {mode === "Pipeline" &&
-              "Review scored leads, drag between stages, click to approve outbound and inbound."}
-            {mode === "Accounts" &&
+            {showOnboarding && onboardingPhase === "checklist" &&
+              "Running your growth checklist — site scan, personas, outbound, and inbound."}
+            {showOnboarding && onboardingPhase === "brain" &&
+              "Review your growth brain and who your ideal customers are."}
+            {!showOnboarding && mode === "Brain" &&
+              "Knowledge graph linking your site, personas, matched accounts, and traits."}
+            {!showOnboarding && mode === "Pipeline" &&
+              "Discovery when found · Nurture on outreach · drag to Proposal or Closed Won."}
+            {!showOnboarding && mode === "Accounts" &&
               "Companies ranked by Orange Slice intent — expand to see suggested contacts."}
-            {mode === "Publish" &&
+            {!showOnboarding && mode === "Outbound" &&
+              "Multi-touch cold email sequences per persona — approve to move leads to Nurture."}
+            {!showOnboarding && mode === "Publish" &&
               "Campaign calendar and meetings across all personas."}
           </p>
         </div>
 
-        {showProgressHero ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-            <RunProgress
-              status={run.status}
-              hostname={hostname}
-              variant="hero"
-              personaCount={personas?.length ?? 0}
-              personasComplete={personasComplete}
-            />
-          </div>
+        {showOnboarding ? (
+          <RunOnboarding
+            phase={onboardingPhase}
+            run={run}
+            hostname={hostname}
+            personas={personas}
+            leads={boardLeads}
+            personasComplete={personasComplete}
+            onEnterWorkspace={enterWorkspace}
+          />
+        ) : mode === "Brain" ? (
+          <GrowthBrainView
+            run={run}
+            personas={personas ?? []}
+            leads={boardLeads}
+            hostname={hostname}
+          />
         ) : mode === "Pipeline" ? (
           <PipelineBoard
             leads={boardLeads}
@@ -247,9 +366,42 @@ export function RevenueCockpit({
             onMoveLead={moveLead}
           />
         ) : mode === "Accounts" ? (
-          <AccountsTable
-            leads={boardLeads}
-            onSelectLead={(lead) => setSelectedLeadId(lead.id)}
+          <div className="space-y-3">
+            {workspaceNotice && (
+              <p className="text-sm text-emerald-400">{workspaceNotice}</p>
+            )}
+            {leadsMissingEmail > 0 && (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-400">
+                <span>
+                  {leadsMissingEmail} contact{leadsMissingEmail === 1 ? "" : "s"}{" "}
+                  missing work email
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void enrichContactEmails({ runId: typedRunId }).then((result) =>
+                      setWorkspaceNotice(result.message),
+                    )
+                  }
+                  className="text-xs font-medium text-white underline-offset-2 hover:underline"
+                >
+                  Enrich from Fiber
+                </button>
+              </div>
+            )}
+            <AccountsTable
+              leads={boardLeads}
+              brandColors={run.brandColors ?? []}
+              onSelectLead={(lead) => setSelectedLeadId(lead.id)}
+            />
+          </div>
+        ) : mode === "Outbound" ? (
+          <OutboundView
+            runId={typedRunId}
+            personas={personas ?? []}
+            personaFilter={personaFilter}
+            runStatus={run.status}
+            onNotice={setWorkspaceNotice}
           />
         ) : (
           <ContentCalendar
@@ -258,6 +410,9 @@ export function RevenueCockpit({
               personas={personas ?? []}
               runStatus={run.status}
               hostname={hostname}
+              brandColors={run.brandColors ?? []}
+              brandCompanyName={run.brandCompanyName}
+              brandLogoUrl={run.brandLogoUrl}
               variant="dark"
             />
         )}

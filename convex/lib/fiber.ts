@@ -43,6 +43,66 @@ type FiberNlpSearchResponse = {
   };
 };
 
+type FiberContactRevealResponse = {
+  output?: {
+    profile?: {
+      emails?: Array<{
+        email: string;
+        type: string;
+        status?: string;
+      }>;
+    };
+  };
+};
+
+function pickWorkEmail(
+  emails: Array<{ email: string; type: string; status?: string }>,
+): string | undefined {
+  const usable = emails.filter((entry) => entry.status !== "invalid");
+  const work = usable.find((entry) => entry.type === "work");
+  if (work?.email) return work.email;
+  return usable[0]?.email;
+}
+
+export async function revealWorkEmail(
+  linkedinUrl: string,
+): Promise<string | undefined> {
+  try {
+    const data = await fiberPost<FiberContactRevealResponse>(
+      "/v1/contact-details/single",
+      {
+        linkedinUrl,
+        enrichmentType: {
+          getWorkEmails: true,
+          getPersonalEmails: false,
+          getPhoneNumbers: false,
+        },
+        validateEmails: true,
+      },
+    );
+
+    return pickWorkEmail(data.output?.profile?.emails ?? []);
+  } catch {
+    return undefined;
+  }
+}
+
+async function enrichLeadEmails(leads: LeadResult[]): Promise<LeadResult[]> {
+  const enriched: LeadResult[] = [];
+
+  for (const lead of leads) {
+    if (!lead.linkedin) {
+      enriched.push(lead);
+      continue;
+    }
+
+    const email = await revealWorkEmail(lead.linkedin);
+    enriched.push(email ? { ...lead, email } : lead);
+  }
+
+  return enriched;
+}
+
 function mapProfile(profile: FiberProfile): LeadResult {
   const currentExp = profile.experiences?.find((e) => e.is_current);
   const job = profile.current_job ?? currentExp;
@@ -144,5 +204,5 @@ export async function findLeads(persona: PersonaResult): Promise<LeadResult[]> {
     );
   }
 
-  return leads;
+  return enrichLeadEmails(leads);
 }

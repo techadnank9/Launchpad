@@ -1,4 +1,9 @@
-import { stageFromIntentScore, type PipelineStage } from "./pipeline";
+import {
+  INITIAL_DISCOVERY_STAGE,
+  advancePipelineStage,
+  defaultPipelineStage,
+  type PipelineStage,
+} from "./pipeline";
 
 export type PersonaMemory = {
   name: string;
@@ -139,7 +144,10 @@ export function mergeLeads(
         (incoming.estimatedDealValue ?? 0) >= (existing.estimatedDealValue ?? 0)
           ? incoming.dealValueExplanation ?? existing.dealValueExplanation
           : existing.dealValueExplanation ?? incoming.dealValueExplanation,
-      pipelineStage: stageFromIntentScore(intentScore),
+      pipelineStage: advancePipelineStage(
+        existing.pipelineStage,
+        incoming.pipelineStage ?? INITIAL_DISCOVERY_STAGE,
+      ),
     });
   }
 
@@ -154,6 +162,6 @@ export function toLeadMemory(
   const intentScore = lead.intentScore;
   return {
     ...lead,
-    pipelineStage: lead.pipelineStage ?? stageFromIntentScore(intentScore),
+    pipelineStage: defaultPipelineStage(lead.pipelineStage),
   };
 }

@@ -9,6 +9,8 @@ export type CalendarEvent = {
   platform?: string;
   caption?: string;
   posterUrl?: string;
+  campaignKey?: string;
+  eventLabel?: string;
   type?: string;
   company?: string;
   durationMinutes?: number;
@@ -82,6 +84,8 @@ export type PostCampaignGroup = {
   heading: string;
   caption?: string;
   posterUrl?: string;
+  campaignKey?: string;
+  eventLabel?: string;
   platforms: Array<{
     platform: string;
     startsAt: number;
@@ -109,15 +113,15 @@ export function groupDayEvents(events: CalendarEvent[]): DayDisplayItem[] {
   const meetings = events.filter((e) => e.kind === "meeting");
   const posts = events.filter((e) => e.kind === "post");
 
-  const byPersona = new Map<string, CalendarEvent[]>();
+  const byCampaign = new Map<string, CalendarEvent[]>();
   for (const post of posts) {
-    const key = post.personaId ?? post.id;
-    const list = byPersona.get(key) ?? [];
+    const key = `${post.personaId ?? post.id}:${post.campaignKey ?? "evergreen"}`;
+    const list = byCampaign.get(key) ?? [];
     list.push(post);
-    byPersona.set(key, list);
+    byCampaign.set(key, list);
   }
 
-  const campaigns: PostCampaignGroup[] = Array.from(byPersona.values()).map(
+  const campaigns: PostCampaignGroup[] = Array.from(byCampaign.values()).map(
     (postList) => {
       const sorted = [...postList].sort((a, b) => a.startsAt - b.startsAt);
       const first = sorted[0];
@@ -125,9 +129,11 @@ export function groupDayEvents(events: CalendarEvent[]): DayDisplayItem[] {
         kind: "post_campaign",
         personaId: first.personaId ?? first.id,
         personaName: first.title,
-        heading: postHeadingFromCaption(first.caption),
+        heading: first.eventLabel ?? postHeadingFromCaption(first.caption),
         caption: first.caption,
         posterUrl: first.posterUrl,
+        campaignKey: first.campaignKey,
+        eventLabel: first.eventLabel,
         platforms: sorted.map((p) => ({
           platform: p.platform ?? "post",
           startsAt: p.startsAt,

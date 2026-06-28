@@ -3,6 +3,7 @@ export type SiteMeta = {
   description?: string;
   themeColor?: string;
   ogImage?: string;
+  logoUrl?: string;
 };
 
 export type SiteScrapeResult = {
@@ -50,7 +51,37 @@ export function extractSiteMeta(html: string, baseUrl: string): SiteMeta {
       readMetaContent(html, "twitter:image"),
   );
 
-  return { title, description, themeColor, ogImage };
+  return { title, description, themeColor, ogImage, logoUrl: extractBrandLogoUrl(html, baseUrl) };
+}
+
+export function extractBrandLogoUrl(
+  html: string,
+  baseUrl: string,
+): string | undefined {
+  const candidates = [
+    readMetaContent(html, "og:logo"),
+    html.match(
+      /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
+    )?.[1],
+    html.match(
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']apple-touch-icon["']/i,
+    )?.[1],
+    html.match(/<link[^>]+rel=["']icon["'][^>]+href=["']([^"']+)["']/i)?.[1],
+    html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']icon["']/i)?.[1],
+    html.match(
+      /<img[^>]+(?:class|id|alt)=["'][^"']*logo[^"']*["'][^>]+src=["']([^"']+)["']/i,
+    )?.[1],
+    html.match(
+      /<img[^>]+src=["']([^"']+)["'][^>]+(?:class|id|alt)=["'][^"']*logo[^"']*["']/i,
+    )?.[1],
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = resolveUrl(baseUrl, candidate);
+    if (resolved) return resolved;
+  }
+
+  return undefined;
 }
 
 function htmlToText(html: string): string {
@@ -73,7 +104,7 @@ export async function scrapeWebsite(url: string): Promise<SiteScrapeResult> {
     const response = await fetch(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; LaunchpadBot/1.0; +https://launchpad.dev)",
+          "Mozilla/5.0 (compatible; AutogrowBot/1.0; +https://autogrow.dev)",
         Accept: "text/html,application/xhtml+xml",
       },
       signal: AbortSignal.timeout(15000),

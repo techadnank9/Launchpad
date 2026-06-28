@@ -5,15 +5,21 @@ import {
   type BoardLead,
   formatCurrency,
   groupLeadsByAccount,
-} from "@/lib/monaco-board";
+} from "@/lib/pipeline-board";
+import { AccountProfileCard } from "./AccountProfileCard";
 import { ScoreBadge } from "./ScoreBadge";
 
 type AccountsTableProps = {
   leads: BoardLead[];
+  brandColors?: string[];
   onSelectLead: (lead: BoardLead) => void;
 };
 
-export function AccountsTable({ leads, onSelectLead }: AccountsTableProps) {
+export function AccountsTable({
+  leads,
+  brandColors,
+  onSelectLead,
+}: AccountsTableProps) {
   const accounts = useMemo(() => groupLeadsByAccount(leads), [leads]);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -104,6 +110,25 @@ export function AccountsTable({ leads, onSelectLead }: AccountsTableProps) {
                     {formatCurrency(account.totalValue)}
                   </td>
                 </tr>
+                {isOpen && (
+                  <tr className="border-b border-white/5 bg-[#1a1a1a]/30">
+                    <td colSpan={6} className="px-4 py-4">
+                      <div className="mx-auto max-w-md">
+                        <AccountProfileCard
+                          lead={account.topContact}
+                          brandColors={brandColors}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => onSelectLead(account.topContact)}
+                          className="mt-3 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
+                        >
+                          Open account details
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {isOpen &&
                   account.contacts.map((contact) => (
                     <tr

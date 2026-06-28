@@ -3,10 +3,10 @@
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
-import { findLeads } from "../lib/fiber";
+import { findLeads, revealWorkEmail } from "../lib/fiber";
 import { scoreLeads } from "../lib/orangeSlice";
 import { mergeLeads, personaSlug, toLeadMemory, type LeadMemory } from "../lib/memory";
-import { stageFromIntentScore } from "../lib/pipeline";
+import { INITIAL_DISCOVERY_STAGE } from "../lib/pipeline";
 
 export const run = internalAction({
   args: {
@@ -34,10 +34,10 @@ export const run = internalAction({
       let mergedLeads: LeadMemory[] = [];
 
       if (run?.siteId) {
-        const cachedRows = await ctx.runQuery(
+        const cachedRows = (await ctx.runQuery(
           internal.sites.listLeadsForPersona,
           { siteId: run.siteId, personaSlug: slug },
-        );
+        )) as LeadMemory[];
         mergedLeads = cachedRows.map(
           ({
             name,
@@ -75,7 +75,7 @@ export const run = internalAction({
       const freshMemory = scoredFresh.map((lead) =>
         toLeadMemory({
           ...lead,
-          pipelineStage: stageFromIntentScore(lead.intentScore),
+          pipelineStage: INITIAL_DISCOVERY_STAGE,
         }),
       );
 
@@ -83,6 +83,15 @@ export const run = internalAction({
         mergedLeads.length > 0
           ? mergeLeads(mergedLeads, freshMemory)
           : freshMemory;
+
+      for (let i = 0; i < mergedLeads.length; i++) {
+        const lead = mergedLeads[i]!;
+        if (lead.email || !lead.linkedin) continue;
+        const email = await revealWorkEmail(lead.linkedin);
+        if (email) {
+          mergedLeads[i] = { ...lead, email };
+        }
+      }
 
       if (run?.siteId) {
         await ctx.runMutation(internal.sites.replaceLeadsForPersona, {

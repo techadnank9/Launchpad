@@ -8,6 +8,10 @@ import { normalizeDomain } from "../lib/domain";
 import { mergePersonas } from "../lib/memory";
 import { scrapeWebsite } from "../lib/scraper";
 import { analyzeSiteWithGPT } from "../lib/openai";
+import {
+  extractBrandColorsFromHtml,
+  mergeBrandColors,
+} from "../lib/brandColors";
 import { studyBrandSocialPosts } from "../lib/socialStudy";
 
 export const run = internalAction({
@@ -64,6 +68,10 @@ export const run = internalAction({
       );
 
       const personas = mergePersonas(cachedPersonas, analysis.personas);
+      const brandColors = mergeBrandColors(
+        extractBrandColorsFromHtml(scraped.html, scraped.meta),
+        analysis.brand.primaryColors,
+      );
 
       const existingSite = await ctx.runQuery(internal.sites.getSiteById, {
         siteId,
@@ -91,7 +99,8 @@ export const run = internalAction({
         valueProp: analysis.valueProp,
         brandCompanyName: analysis.brand.companyName,
         brandTagline: analysis.brand.tagline,
-        brandColors: analysis.brand.primaryColors,
+        brandColors,
+        brandLogoUrl: scraped.meta.logoUrl,
         brandVisualStyle: analysis.brand.visualStyle,
         brandImageryNotes: analysis.brand.imageryNotes,
       });
@@ -108,7 +117,8 @@ export const run = internalAction({
         valueProp: analysis.valueProp,
         brandCompanyName: analysis.brand.companyName,
         brandTagline: analysis.brand.tagline,
-        brandColors: analysis.brand.primaryColors,
+        brandColors,
+        brandLogoUrl: scraped.meta.logoUrl,
         brandVisualStyle: analysis.brand.visualStyle,
         brandImageryNotes: analysis.brand.imageryNotes,
         brandSocialStudy,

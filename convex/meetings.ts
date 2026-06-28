@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MEETING_HOUR_UTC = 15; // 10am ET
@@ -73,5 +73,21 @@ export const listBySite = query({
       .query("meetings")
       .withIndex("by_site", (q) => q.eq("siteId", args.siteId))
       .collect();
+  },
+});
+
+export const completeMeeting = mutation({
+  args: { meetingId: v.id("meetings") },
+  handler: async (ctx, args) => {
+    const meeting = await ctx.db.get(args.meetingId);
+    if (!meeting) throw new Error("Meeting not found");
+    if (!meeting.leadId) throw new Error("Meeting is not linked to a lead");
+
+    await ctx.db.patch(args.meetingId, { status: "completed" });
+
+    return {
+      success: true,
+      message: "Meeting marked done (demo — card stays in current column)",
+    };
   },
 });

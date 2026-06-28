@@ -94,7 +94,7 @@ function statusSubtext(status: RunStatus): string {
 type RunProgressProps = {
   status: RunStatus;
   hostname: string;
-  variant?: "hero" | "compact" | "strip";
+  variant?: "hero" | "hero-dark" | "compact" | "strip";
   personaCount?: number;
   personasComplete?: number;
 };
@@ -132,64 +132,79 @@ export function RunProgress({
   }
 
   const steps = variant === "compact" ? STEPS.slice(0, 4) : STEPS;
+  const isDark = variant === "hero-dark";
 
   return (
     <div
       className={
         variant === "hero"
           ? "surface flex min-h-[420px] flex-col justify-center rounded-xl px-6 py-10 sm:px-10"
-          : "rounded-lg border border-[#ecece7] bg-[#fafaf8] px-4 py-5"
+          : variant === "hero-dark"
+            ? "flex min-h-[420px] flex-col justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-10 sm:px-10"
+            : "rounded-lg border border-[#ecece7] bg-[#fafaf8] px-4 py-5"
       }
     >
-      <div className={variant === "hero" ? "mx-auto w-full max-w-lg" : ""}>
+      <div className={variant === "hero" || variant === "hero-dark" ? "mx-auto w-full max-w-lg" : ""}>
         <div className="flex items-center gap-3">
           {status !== "failed" && status !== "complete" && (
             <span className="relative flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-40" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-violet-600" />
+              <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-40 ${isDark ? "bg-violet-400" : "bg-violet-400"}`} />
+              <span className={`relative inline-flex h-3 w-3 rounded-full ${isDark ? "bg-violet-400" : "bg-violet-600"}`} />
             </span>
           )}
           <p
-            className={`font-[family-name:var(--font-display)] tracking-tight text-[#0a0a0a] ${
-              variant === "hero" ? "text-2xl sm:text-3xl" : "text-base"
-            }`}
+            className={`font-[family-name:var(--font-display)] tracking-tight ${
+              isDark ? "text-white" : "text-[#0a0a0a]"
+            } ${variant === "hero" || variant === "hero-dark" ? "text-2xl sm:text-3xl" : "text-base"}`}
           >
             {statusHeadline(status, hostname)}
           </p>
         </div>
         <p
-          className={`mt-3 leading-relaxed text-[#3f3f46] ${
-            variant === "hero" ? "text-sm sm:text-base" : "text-xs"
-          }`}
+          className={`mt-3 leading-relaxed ${
+            isDark ? "text-zinc-400" : "text-[#3f3f46]"
+          } ${variant === "hero" || variant === "hero-dark" ? "text-sm sm:text-base" : "text-xs"}`}
         >
           {statusSubtext(status)}
         </p>
 
         {status === "processing" && personaCount > 0 && (
-          <p className="mt-2 text-xs font-medium text-violet-900">
+          <p className={`mt-2 text-xs font-medium ${isDark ? "text-violet-300" : "text-violet-900"}`}>
             {personasComplete} of {personaCount} persona
             {personaCount === 1 ? "" : "s"} complete
           </p>
         )}
 
-        <ol className={`space-y-3 ${variant === "hero" ? "mt-8" : "mt-4"}`}>
+        <ol className={`space-y-3 ${variant === "hero" || variant === "hero-dark" ? "mt-8" : "mt-4"}`}>
           {steps.map((step, i) => {
             const state = stepState(status, i);
             return (
               <li key={step.label} className="flex gap-3">
-                <StepIcon state={state} />
+                <StepIcon state={state} dark={isDark} />
                 <div className="min-w-0 pt-0.5">
                   <p
                     className={`text-sm font-medium ${
-                      state === "pending" ? "text-[#a1a1aa]" : "text-[#0a0a0a]"
+                      state === "pending"
+                        ? isDark
+                          ? "text-zinc-600"
+                          : "text-[#a1a1aa]"
+                        : isDark
+                          ? "text-white"
+                          : "text-[#0a0a0a]"
                     }`}
                   >
                     {step.label}
                   </p>
-                  {(state === "active" || variant === "hero") && (
+                  {(state === "active" || variant === "hero" || variant === "hero-dark") && (
                     <p
                       className={`mt-0.5 leading-relaxed ${
-                        state === "active" ? "text-[#52525b]" : "text-[#a1a1aa]"
+                        state === "active"
+                          ? isDark
+                            ? "text-zinc-400"
+                            : "text-[#52525b]"
+                          : isDark
+                            ? "text-zinc-600"
+                            : "text-[#a1a1aa]"
                       } ${variant === "compact" ? "text-[11px]" : "text-xs"}`}
                     >
                       {step.detail}
@@ -205,10 +220,18 @@ export function RunProgress({
   );
 }
 
-function StepIcon({ state }: { state: "done" | "active" | "pending" }) {
+function StepIcon({
+  state,
+  dark,
+}: {
+  state: "done" | "active" | "pending";
+  dark?: boolean;
+}) {
   if (state === "done") {
     return (
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-800">
+      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+        dark ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-800"
+      }`}>
         ✓
       </span>
     );
@@ -216,12 +239,14 @@ function StepIcon({ state }: { state: "done" | "active" | "pending" }) {
   if (state === "active") {
     return (
       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-violet-600" />
+        <span className={`h-2.5 w-2.5 animate-pulse rounded-full ${dark ? "bg-violet-400" : "bg-violet-600"}`} />
       </span>
     );
   }
   return (
-    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#d4d4cc] bg-white" />
+    <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+      dark ? "border-white/15 bg-white/5" : "border-[#d4d4cc] bg-white"
+    }`} />
   );
 }
 

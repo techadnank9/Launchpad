@@ -18,7 +18,7 @@ export function SocialAccountsPage() {
               Connect social accounts
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-[#52525b]">
-              Link LinkedIn, X, and Instagram so Launchpad can publish approved posts.
+              Link LinkedIn, X, and Instagram so Autogrow can publish approved posts.
               LinkedIn live publishing is enabled today; other platforms store the connection
               for upcoming support.
             </p>

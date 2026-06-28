@@ -7,7 +7,7 @@ const FLOW_STEPS = [
     id: "input",
     phase: "Input",
     title: "Paste your URL",
-    body: "One URL is all Launchpad needs. We normalize the domain and create a GTM run instantly.",
+    body: "One URL is all Autogrow needs. We normalize the domain and create a GTM run instantly.",
     tags: ["Next.js UI", "Convex"],
   },
   {
@@ -64,7 +64,7 @@ const OUTPUTS = [
   {
     title: "Pipeline Board",
     href: "/how-it-works#pipeline",
-    description: "Monaco-style kanban — Discovery → Nurture → Proposal → Closed Won.",
+    description: "Revenue pipeline — Discovery → Nurture → Proposal → Closed Won.",
   },
   {
     title: "Content Calendar",
@@ -84,7 +84,7 @@ export function PlatformFlowPage() {
             Platform architecture
           </p>
           <h1 className="mt-3 font-[family-name:var(--font-display)] text-4xl tracking-tight text-[#0a0a0a] sm:text-5xl">
-            How Launchpad works
+            How Autogrow works
           </h1>
           <p className="mt-4 text-lg leading-relaxed text-[#3f3f46]">
             From a single URL to outbound pipelines, inbound content, and a live
@@ -150,7 +150,7 @@ export function PlatformFlowPage() {
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-[#3f3f46]">
                     Every domain gets a persistent site profile. Re-run the same
-                    URL and Launchpad merges new GPT analysis with cached personas
+                    URL and Autogrow merges new GPT analysis with cached personas
                     and leads — no duplicate work, smarter every time.
                   </p>
                 </div>

@@ -36,6 +36,11 @@ const OPTIONAL_KEYS = [
   "COMPOSIO_DASHBOARD_WORKSPACE",
   "COMPOSIO_TWITTER_AUTH_CONFIG_ID",
   "COMPOSIO_INSTAGRAM_AUTH_CONFIG_ID",
+  "AGENTMAIL_API_KEY",
+  "AGENTMAIL_INBOX_ID",
+  "AGENTMAIL_REPLY_TO",
+  "AGENTMAIL_SANDBOX_INBOX",
+  "AGENTMAIL_DEMO_RECIPIENT",
 ];
 
 function parseEnvFile(content) {
@@ -121,7 +126,7 @@ for (const key of OPTIONAL_KEYS) {
 
 if (!vars.POSTIZ_API_KEY?.trim() || !vars.POSTIZ_BASE_URL?.trim()) {
   console.log(
-    "\nℹ️  Postiz not configured — inbound posts will stay in Launchpad's calendar only.",
+    "\nℹ️  Postiz not configured — inbound posts will stay in Autogrow's calendar only.",
   );
 }
 
@@ -132,6 +137,19 @@ if (
 ) {
   console.log(
     "\nℹ️  Composio not configured — approve will use Postiz or local scheduling only.",
+  );
+}
+
+if (
+  !vars.AGENTMAIL_API_KEY?.trim() ||
+  !vars.AGENTMAIL_INBOX_ID?.trim()
+) {
+  console.log(
+    "\nℹ️  AgentMail not configured — outbound drips stay on timeline only until keys are set.",
+  );
+} else {
+  console.log(
+    "\nℹ️  Outbound email is sandbox-only → autogrowreciever@agentmail.to (never real prospect emails).",
   );
 }
 

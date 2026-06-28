@@ -36,6 +36,8 @@ export const listByRun = query({
         platform: p.platform,
         caption: p.caption,
         posterUrl: p.posterUrl,
+        campaignKey: p.campaignKey,
+        eventLabel: p.eventLabel,
       })),
       meetings: meetings.map((m) => ({
         id: m._id,

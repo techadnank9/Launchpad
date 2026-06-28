@@ -2,6 +2,20 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 
+export const getCampaignKeysByPersona = internalQuery({
+  args: { personaId: v.id("personas") },
+  handler: async (ctx, args) => {
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_persona", (q) => q.eq("personaId", args.personaId))
+      .collect();
+
+    return [
+      ...new Set(posts.map((post) => post.campaignKey ?? "evergreen")),
+    ] as string[];
+  },
+});
+
 export const insertPost = internalMutation({
   args: {
     runId: v.id("runs"),
@@ -21,6 +35,8 @@ export const insertPost = internalMutation({
     ),
     postizId: v.optional(v.string()),
     externalPostId: v.optional(v.string()),
+    campaignKey: v.optional(v.string()),
+    eventLabel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("posts", args);
@@ -64,6 +80,49 @@ export const stagePosterRevision = internalMutation({
       previousPosterUrl: args.previousPosterUrl,
       status: "draft",
     });
+  },
+});
+
+export const replacePosterUrl = internalMutation({
+  args: {
+    runId: v.id("runs"),
+    fromUrl: v.string(),
+    toUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_run", (q) => q.eq("runId", args.runId))
+      .collect();
+
+    for (const post of posts) {
+      const patch: {
+        posterUrl?: string;
+        previousPosterUrl?: string;
+      } = {};
+
+      if (post.posterUrl === args.fromUrl) {
+        patch.posterUrl = args.toUrl;
+      }
+      if (post.previousPosterUrl === args.fromUrl) {
+        patch.previousPosterUrl = args.toUrl;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(post._id, patch);
+      }
+    }
+
+    const personas = await ctx.db
+      .query("personas")
+      .withIndex("by_run", (q) => q.eq("runId", args.runId))
+      .collect();
+
+    for (const persona of personas) {
+      if (persona.posterUrl === args.fromUrl) {
+        await ctx.db.patch(persona._id, { posterUrl: args.toUrl });
+      }
+    }
   },
 });
 
@@ -289,6 +348,16 @@ export const listByRun = query({
   },
 });
 
+export const listByRunInternal = internalQuery({
+  args: { runId: v.id("runs") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("posts")
+      .withIndex("by_run", (q) => q.eq("runId", args.runId))
+      .collect();
+  },
+});
+
 export const listByPersona = query({
   args: { personaId: v.id("personas") },
   handler: async (ctx, args) => {
@@ -332,6 +401,75 @@ export const approveAndPost = mutation({
       success: true,
       message: "Posting…",
       channel: "local" as const,
+    };
+  },
+});
+
+export const generateUpcomingEventCampaigns = mutation({
+  args: { runId: v.id("runs") },
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+
+    const personas = await ctx.db
+      .query("personas")
+      .withIndex("by_run", (q) => q.eq("runId", args.runId))
+      .collect();
+
+    if (personas.length === 0) {
+      throw new Error("No personas found for this run");
+    }
+
+    for (const persona of personas) {
+      await ctx.scheduler.runAfter(0, internal.agents.eventCampaignAgent.run, {
+        runId: args.runId,
+        personaId: persona._id,
+        productSummary: run.productSummary ?? run.valueProp ?? "",
+      });
+    }
+
+    return {
+      success: true,
+      message: `Generating July event campaigns for ${personas.length} persona${personas.length === 1 ? "" : "s"}…`,
+    };
+  },
+});
+
+export const approveCampaignGroup = mutation({
+  args: {
+    personaId: v.id("personas"),
+    campaignKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const key = args.campaignKey ?? "evergreen";
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_persona", (q) => q.eq("personaId", args.personaId))
+      .collect()
+      .then((rows) =>
+        rows.filter((post) => (post.campaignKey ?? "evergreen") === key),
+      );
+
+    if (posts.length === 0) {
+      throw new Error("No posts found for this campaign");
+    }
+
+    let queued = 0;
+    for (const post of posts) {
+      if (post.status === "posted") {
+        queued += 1;
+        continue;
+      }
+
+      await ctx.scheduler.runAfter(0, internal.composioActions.publishPost, {
+        postId: post._id,
+      });
+      queued += 1;
+    }
+
+    return {
+      success: true,
+      message: `Posting ${queued} platform${queued === 1 ? "" : "s"}…`,
     };
   },
 });

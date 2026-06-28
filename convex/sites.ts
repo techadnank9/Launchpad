@@ -96,6 +96,7 @@ export const updateSiteProfile = internalMutation({
     brandCompanyName: v.string(),
     brandTagline: v.string(),
     brandColors: v.array(v.string()),
+    brandLogoUrl: v.optional(v.string()),
     brandVisualStyle: v.string(),
     brandImageryNotes: v.string(),
   },

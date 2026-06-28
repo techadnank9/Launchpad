@@ -1,4 +1,4 @@
-import { scoreTier } from "@/lib/monaco-board";
+import { scoreTier } from "@/lib/pipeline-board";
 
 export function ScoreBadge({
   intentScore,
