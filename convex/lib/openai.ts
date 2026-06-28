@@ -1,6 +1,6 @@
 "use node";
 
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { optionalEnv, requireEnv } from "./env";
 
 export type BrandKit = {
@@ -18,6 +18,10 @@ export type PersonaResult = {
   contentTone: string;
   outboundTargets: string;
   posterStyle: string;
+  /** Realistic annual deal size USD when selling THIS product to THIS persona */
+  dealSizeMinUsd?: number;
+  dealSizeMaxUsd?: number;
+  pricingModel?: string;
 };
 
 export type SiteAnalysisResult = {
@@ -31,6 +35,7 @@ export type BrandContext = BrandKit & {
   siteUrl: string;
   productSummary: string;
   valueProp: string;
+  socialStudy?: BrandSocialStudy;
 };
 
 function getClient(): OpenAI {
@@ -38,6 +43,9 @@ function getClient(): OpenAI {
 }
 
 import type { SiteMeta } from "./scraper";
+import { normalizePersonaEconomics } from "./dealValue";
+import type { BrandSocialStudy } from "./socialStudyTypes";
+import { formatSocialStudyForPrompt } from "./socialStudyTypes";
 
 export async function analyzeSiteWithGPT(
   url: string,
@@ -79,10 +87,14 @@ export async function analyzeSiteWithGPT(
       "messagingAngle": "how to pitch to this persona",
       "contentTone": "tone for content",
       "outboundTargets": "who to target for outbound",
-      "posterStyle": "persona-specific poster art direction that USES the brand colors and visual identity"
+      "posterStyle": "persona-specific poster art direction that USES the brand colors and visual identity",
+      "dealSizeMinUsd": 480,
+      "dealSizeMaxUsd": 3600,
+      "pricingModel": "e.g. Per-location annual subscription — realistic for THIS product sold to THIS buyer"
     }
   ]
 }
+For each persona, set dealSizeMinUsd and dealSizeMaxUsd to a REALISTIC annual contract range if this company sold to that buyer (not generic $65k — indie café owner might be $500–$4k/yr, enterprise chain $25k–$120k/yr). Base ranges on what the website actually sells and who would buy it.
 Extract real brand colors and visual identity from the site content and meta tags — not generic defaults.
 Each persona posterStyle must reference the brand's colors and imagery while tailoring mood to that persona.
 Return 3-5 distinct buyer personas.`,
@@ -105,6 +117,19 @@ Return 3-5 distinct buyer personas.`,
   if (!parsed.brand?.companyName) {
     throw new Error("OpenAI returned no brand identity");
   }
+
+  parsed.personas = parsed.personas.map((p) => {
+    const econ = normalizePersonaEconomics(
+      {
+        dealSizeMinUsd: p.dealSizeMinUsd,
+        dealSizeMaxUsd: p.dealSizeMaxUsd,
+        pricingModel: p.pricingModel,
+      },
+      p.name,
+    );
+    return { ...p, ...econ };
+  });
+
   return parsed;
 }
 
@@ -149,6 +174,9 @@ export async function generateCaption(
   persona: PersonaResult,
 ): Promise<string> {
   const client = getClient();
+  const socialBlock = brand.socialStudy
+    ? `\n\nEXISTING BRAND SOCIAL POSTS (study and match this voice — do not sound generic):\n${formatSocialStudyForPrompt(brand.socialStudy)}`
+    : "";
 
   const response = await client.chat.completions.create({
     model: "gpt-4o",
@@ -156,7 +184,7 @@ export async function generateCaption(
       {
         role: "system",
         content:
-          "Write a compelling social media caption (max 280 chars) for LinkedIn. Use the brand name naturally. Return only the caption text.",
+          "Write a compelling social media caption (max 280 chars). Match the brand's EXISTING post voice from the social study — same tone, emoji habits, and themes as their real posts. Return only the caption text.",
       },
       {
         role: "user",
@@ -165,10 +193,10 @@ Tagline: ${brand.tagline}
 Product: ${brand.productSummary}
 Persona: ${persona.name}
 Angle: ${persona.messagingAngle}
-Tone: ${persona.contentTone}`,
+Tone: ${persona.contentTone}${socialBlock}`,
       },
     ],
-    temperature: 0.8,
+    temperature: 0.75,
   });
 
   const caption = response.choices[0]?.message?.content?.trim();
@@ -184,6 +212,12 @@ export async function generatePosterBytes(
   const model = optionalEnv("OPENAI_IMAGE_MODEL") ?? "gpt-image-1";
 
   const colorList = brand.primaryColors.join(", ");
+  const socialBlock = brand.socialStudy
+    ? `
+
+THEIR EXISTING SOCIAL CONTENT (match this look — study before creating):
+${formatSocialStudyForPrompt(brand.socialStudy)}`
+    : "";
 
   const prompt = `On-brand social media marketing poster for "${brand.companyName}" (${brand.siteUrl}).
 
@@ -192,7 +226,7 @@ BRAND IDENTITY — follow exactly:
 - Tagline vibe: ${brand.tagline}
 - Brand colors (use prominently in background, accents, and lighting): ${colorList}
 - Visual style: ${brand.visualStyle}
-- Brand imagery/motifs: ${brand.imageryNotes}
+- Brand imagery/motifs: ${brand.imageryNotes}${socialBlock}
 
 CAMPAIGN (persona-specific layer):
 - Target persona: ${persona.name}
@@ -200,9 +234,141 @@ CAMPAIGN (persona-specific layer):
 - Art direction: ${persona.posterStyle}
 - Product context: ${brand.productSummary}
 
-The poster must look like official ${brand.companyName} marketing — not a generic stock template. Reflect the brand's unique visual identity, colors, and imagery. Persona-specific mood is OK but brand recognition comes first.
+The poster must look like it belongs in this brand's EXISTING social feed — same photography style, color grading, and subject matter as their real posts. Not a generic stock template. Persona-specific mood is OK but brand recognition comes first.
 
 Square 1:1 ad layout. Professional, polished, eye-catching. NO readable text, letters, words, or logos in the image.`;
+
+  const response = await client.images.generate({
+    model,
+    prompt,
+    n: 1,
+    size: "1024x1024",
+  });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error(`OpenAI image model "${model}" returned no image data`);
+  }
+
+  return Uint8Array.from(Buffer.from(b64, "base64"));
+}
+
+const platformCaptionLimits: Record<string, number> = {
+  twitter: 280,
+  linkedin: 3000,
+  instagram: 2200,
+};
+
+export async function reviseCaption(args: {
+  currentCaption: string;
+  instructions: string;
+  brand: BrandContext;
+  persona: PersonaResult;
+  platform: "linkedin" | "twitter" | "instagram";
+}): Promise<string> {
+  const client = getClient();
+  const maxLen = platformCaptionLimits[args.platform] ?? 280;
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: `You edit social media captions. Platform: ${args.platform}. Max ${maxLen} characters.
+
+Rules:
+- Apply ONLY the user's requested changes
+- Keep the rest of the caption intact unless they ask for a full rewrite
+- Preserve brand voice and factual claims
+- Return ONLY the final caption text — no quotes, labels, or explanation`,
+      },
+      {
+        role: "user",
+        content: `Current caption:
+${args.currentCaption}
+
+Changes to make:
+${args.instructions}`,
+      },
+    ],
+    temperature: 0.5,
+  });
+
+  let caption = response.choices[0]?.message?.content?.trim() ?? "";
+  caption = caption.replace(/^["']|["']$/g, "").trim();
+  if (!caption) throw new Error("OpenAI returned no revised caption");
+  return caption.slice(0, maxLen);
+}
+
+export async function editPosterBytes(args: {
+  instructions: string;
+  imageBytes: Buffer;
+  brand: BrandContext;
+  persona: PersonaResult;
+}): Promise<Uint8Array> {
+  const client = getClient();
+  const model = optionalEnv("OPENAI_IMAGE_MODEL") ?? "gpt-image-1";
+  const colorList = args.brand.primaryColors.join(", ");
+
+  const prompt = `Edit this ${args.brand.companyName} social media poster.
+
+Make these changes: ${args.instructions}
+
+Keep: brand colors (${colorList}), ${args.brand.visualStyle} style, ${args.persona.posterStyle} art direction, and overall on-brand look unless a change requires otherwise.
+
+Do not add readable text, letters, words, or logos.`;
+
+  const imageFile = await toFile(args.imageBytes, "poster.png", {
+    type: "image/png",
+  });
+
+  const response = await client.images.edit({
+    model,
+    image: imageFile,
+    prompt,
+    size: "1024x1024",
+  });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error(`OpenAI image model "${model}" returned no edited image`);
+  }
+
+  return Uint8Array.from(Buffer.from(b64, "base64"));
+}
+
+export async function revisePosterBytes(args: {
+  instructions: string;
+  brand: BrandContext;
+  persona: PersonaResult;
+  imageBytes?: Buffer;
+  currentPosterUrl?: string;
+}): Promise<Uint8Array> {
+  let imageBytes = args.imageBytes;
+  if (!imageBytes && args.currentPosterUrl) {
+    const response = await fetch(args.currentPosterUrl);
+    if (response.ok) {
+      imageBytes = Buffer.from(await response.arrayBuffer());
+    }
+  }
+
+  if (imageBytes) {
+    return editPosterBytes({
+      instructions: args.instructions,
+      imageBytes,
+      brand: args.brand,
+      persona: args.persona,
+    });
+  }
+
+  const client = getClient();
+  const model = optionalEnv("OPENAI_IMAGE_MODEL") ?? "gpt-image-1";
+  const colorList = args.brand.primaryColors.join(", ");
+
+  const prompt = `On-brand social media poster for ${args.brand.companyName}.
+Colors: ${colorList}. Style: ${args.brand.visualStyle}. Persona: ${args.persona.name}.
+Changes: ${args.instructions}
+Square 1:1. NO readable text or logos.`;
 
   const response = await client.images.generate({
     model,

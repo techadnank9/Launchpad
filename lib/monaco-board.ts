@@ -1,4 +1,9 @@
 import { stageFromIntentScore, type PipelineStage } from "./pipeline";
+import {
+  computeDealValue,
+  defaultPersonaEconomics,
+  personaEconomicsFromPersona,
+} from "@/lib/deal-value";
 
 export const MONACO_COLUMNS = [
   {
@@ -39,9 +44,11 @@ export function columnForStage(stage: PipelineStage): MonacoColumnId {
   return "discovery";
 }
 
-/** Rough ACV estimate from intent score for board totals */
-export function estimatedDealValue(intentScore: number): number {
-  return Math.round((intentScore / 100) * 75_000 + 12_500);
+/** @deprecated Use stored estimatedDealValue from Orange Slice scoring */
+export function estimatedDealValueFromScore(intentScore: number): number {
+  const econ = defaultPersonaEconomics("default");
+  const motion = Math.max(0, Math.min(100, (intentScore - 22) / 0.77));
+  return computeDealValue(econ, motion).value;
 }
 
 export function formatCurrency(amount: number): string {
@@ -62,8 +69,23 @@ export function columnLabel(columnId: MonacoColumnId): string {
   return MONACO_COLUMNS.find((c) => c.id === columnId)?.label ?? columnId;
 }
 
+export type ScoreTier = {
+  grade: "A" | "B" | "C" | "D";
+  label: string;
+  hot: boolean;
+};
+
+export function scoreTier(intentScore: number): ScoreTier {
+  if (intentScore >= 85) return { grade: "A", label: "Burning", hot: true };
+  if (intentScore >= 70) return { grade: "A", label: "Hot", hot: true };
+  if (intentScore >= 55) return { grade: "B", label: "Warm", hot: false };
+  if (intentScore >= 40) return { grade: "C", label: "New", hot: false };
+  return { grade: "D", label: "Cold", hot: false };
+}
+
 export type BoardLead = {
   id: string;
+  personaId: string;
   name: string;
   title: string;
   company: string;
@@ -72,37 +94,113 @@ export type BoardLead = {
   stage: PipelineStage;
   columnId: MonacoColumnId;
   value: number;
+  motionScore?: number;
+  dealValueExplanation?: string;
+  personaDealMin?: number;
+  personaDealMax?: number;
+  pricingModel?: string;
   personaName?: string;
   email?: string;
   linkedin?: string;
 };
 
+export type AccountGroup = {
+  company: string;
+  maxScore: number;
+  totalValue: number;
+  contacts: BoardLead[];
+  personaNames: string[];
+  topContact: BoardLead;
+};
+
+export function groupLeadsByAccount(leads: BoardLead[]): AccountGroup[] {
+  const byCompany = new Map<string, BoardLead[]>();
+  for (const lead of leads) {
+    const key = lead.company.trim().toLowerCase();
+    const list = byCompany.get(key) ?? [];
+    list.push(lead);
+    byCompany.set(key, list);
+  }
+
+  return Array.from(byCompany.values())
+    .map((contacts) => {
+      const sorted = [...contacts].sort((a, b) => b.intentScore - a.intentScore);
+      const topContact = sorted[0]!;
+      const personaNames = [...new Set(contacts.map((c) => c.personaName).filter(Boolean))] as string[];
+      return {
+        company: topContact.company,
+        maxScore: topContact.intentScore,
+        totalValue: contacts.reduce((sum, c) => sum + c.value, 0),
+        contacts: sorted,
+        personaNames,
+        topContact,
+      };
+    })
+    .sort((a, b) => b.maxScore - a.maxScore);
+}
+
 export function toBoardLead(
   lead: {
     _id: string;
+    personaId: string;
     name: string;
     title: string;
     company: string;
     intentScore: number;
     pipelineStage?: PipelineStage;
     intentSignals?: string[];
+    motionScore?: number;
+    estimatedDealValue?: number;
+    dealValueExplanation?: string;
     email?: string;
     linkedin?: string;
   },
-  personaName?: string,
+  persona?: {
+    name?: string;
+    dealSizeMinUsd?: number;
+    dealSizeMaxUsd?: number;
+    pricingModel?: string;
+  },
 ): BoardLead {
   const stage = resolveStage(lead.pipelineStage, lead.intentScore);
+  const economics = persona
+    ? personaEconomicsFromPersona({
+        name: persona.name ?? "",
+        dealSizeMinUsd: persona.dealSizeMinUsd,
+        dealSizeMaxUsd: persona.dealSizeMaxUsd,
+        pricingModel: persona.pricingModel,
+      })
+    : defaultPersonaEconomics("");
+
+  const motion =
+    lead.motionScore ??
+    Math.max(0, Math.min(100, (lead.intentScore - 22) / 0.77));
+
+  const value =
+    lead.estimatedDealValue ??
+    computeDealValue(economics, motion).value;
+
+  const explanation =
+    lead.dealValueExplanation ??
+    computeDealValue(economics, motion).explanation;
+
   return {
     id: lead._id,
+    personaId: lead.personaId,
     name: lead.name,
     title: lead.title,
     company: lead.company,
     intentScore: lead.intentScore,
     intentSignals: lead.intentSignals ?? [],
+    motionScore: lead.motionScore,
+    dealValueExplanation: explanation,
     stage,
     columnId: columnForStage(stage),
-    value: estimatedDealValue(lead.intentScore),
-    personaName,
+    value,
+    personaDealMin: economics.dealSizeMinUsd,
+    personaDealMax: economics.dealSizeMaxUsd,
+    pricingModel: economics.pricingModel,
+    personaName: persona?.name,
     email: lead.email,
     linkedin: lead.linkedin,
   };

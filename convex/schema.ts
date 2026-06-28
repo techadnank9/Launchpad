@@ -1,6 +1,26 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+export const brandSocialStudyValidator = v.object({
+  profiles: v.array(
+    v.object({
+      platform: v.string(),
+      url: v.string(),
+    }),
+  ),
+  samplePosts: v.array(
+    v.object({
+      platform: v.string(),
+      text: v.string(),
+      source: v.optional(v.string()),
+    }),
+  ),
+  captionVoice: v.string(),
+  visualPatterns: v.string(),
+  contentThemes: v.array(v.string()),
+  hashtags: v.array(v.string()),
+});
+
 export default defineSchema({
   sites: defineTable({
     domain: v.string(),
@@ -12,6 +32,8 @@ export default defineSchema({
     brandColors: v.optional(v.array(v.string())),
     brandVisualStyle: v.optional(v.string()),
     brandImageryNotes: v.optional(v.string()),
+    brandSocialStudy: v.optional(brandSocialStudyValidator),
+    composioLinkedInAccountId: v.optional(v.string()),
     updatedAt: v.number(),
   }).index("by_domain", ["domain"]),
 
@@ -24,6 +46,9 @@ export default defineSchema({
     contentTone: v.string(),
     outboundTargets: v.string(),
     posterStyle: v.string(),
+    dealSizeMinUsd: v.optional(v.number()),
+    dealSizeMaxUsd: v.optional(v.number()),
+    pricingModel: v.optional(v.string()),
     updatedAt: v.number(),
   }).index("by_site", ["siteId"]),
 
@@ -39,6 +64,9 @@ export default defineSchema({
     linkedin: v.optional(v.string()),
     intentScore: v.number(),
     intentSignals: v.array(v.string()),
+    motionScore: v.optional(v.number()),
+    estimatedDealValue: v.optional(v.number()),
+    dealValueExplanation: v.optional(v.string()),
     pipelineStage: v.union(
       v.literal("inbound"),
       v.literal("new"),
@@ -71,6 +99,7 @@ export default defineSchema({
     brandColors: v.optional(v.array(v.string())),
     brandVisualStyle: v.optional(v.string()),
     brandImageryNotes: v.optional(v.string()),
+    brandSocialStudy: v.optional(brandSocialStudyValidator),
     error: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_created", ["createdAt"]).index("by_site", ["siteId"]),
@@ -83,6 +112,9 @@ export default defineSchema({
     contentTone: v.string(),
     outboundTargets: v.string(),
     posterStyle: v.string(),
+    dealSizeMinUsd: v.optional(v.number()),
+    dealSizeMaxUsd: v.optional(v.number()),
+    pricingModel: v.optional(v.string()),
     status: v.union(
       v.literal("pending"),
       v.literal("processing"),
@@ -104,6 +136,9 @@ export default defineSchema({
     linkedin: v.optional(v.string()),
     intentScore: v.number(),
     intentSignals: v.array(v.string()),
+    motionScore: v.optional(v.number()),
+    estimatedDealValue: v.optional(v.number()),
+    dealValueExplanation: v.optional(v.string()),
     pipelineStage: v.optional(
       v.union(
         v.literal("inbound"),
@@ -150,6 +185,8 @@ export default defineSchema({
       v.literal("posted"),
     ),
     postizId: v.optional(v.string()),
+    externalPostId: v.optional(v.string()),
+    previousPosterUrl: v.optional(v.string()),
   })
     .index("by_persona", ["personaId"])
     .index("by_run", ["runId"]),

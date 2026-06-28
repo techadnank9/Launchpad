@@ -20,9 +20,11 @@ import {
 type CalendarViewProps = {
   runId: Id<"runs">;
   siteId?: Id<"sites"> | null;
+  variant?: "light" | "dark";
 };
 
-export function CalendarView({ runId, siteId }: CalendarViewProps) {
+export function CalendarView({ runId, siteId, variant = "light" }: CalendarViewProps) {
+  const isDark = variant === "dark";
   const runEvents = useQuery(api.calendar.listByRun, { runId });
   const siteEvents = useQuery(
     api.calendar.listBySite,
@@ -44,9 +46,28 @@ export function CalendarView({ runId, siteId }: CalendarViewProps) {
     [events, selectedDay],
   );
 
+  const t = {
+    heading: isDark ? "text-white" : "text-[#0a0a0a]",
+    muted: isDark ? "text-zinc-400" : "text-[#52525b]",
+    body: isDark ? "text-zinc-300" : "text-[#3f3f46]",
+    border: isDark ? "border-white/10" : "border-[#d4d4cc]",
+    innerBorder: isDark ? "border-white/10" : "border-[#ecece7]",
+    panel: isDark ? "bg-[#141414]" : "bg-white",
+    panelMuted: isDark ? "bg-white/5" : "bg-[#fafaf8]",
+    navBtn: isDark
+      ? "border-white/15 text-zinc-300 hover:bg-white/10"
+      : "border-[#d4d4cc] hover:bg-[#ecece7]",
+    dayNum: isDark ? "text-zinc-300" : "text-[#3f3f46]",
+    dayHover: isDark ? "hover:bg-white/5" : "hover:bg-[#fafaf8]",
+    daySelected: isDark
+      ? "bg-violet-500/15 ring-1 ring-inset ring-violet-400/40"
+      : "bg-violet-50 ring-1 ring-inset ring-violet-300",
+    row: isDark ? "border-white/10" : "border-[#ecece7]",
+  };
+
   if (data === undefined) {
     return (
-      <div className="h-64 animate-pulse rounded-xl border border-[#d4d4cc] bg-white" />
+      <div className={`h-64 animate-pulse rounded-xl border ${t.border} ${t.panel}`} />
     );
   }
 
@@ -57,29 +78,29 @@ export function CalendarView({ runId, siteId }: CalendarViewProps) {
           <button
             type="button"
             onClick={() => setViewDate((d) => addMonths(d, -1))}
-            className="rounded-md border border-[#d4d4cc] px-2 py-1 text-sm hover:bg-[#ecece7]"
+            className={`rounded-md border px-2 py-1 text-sm ${t.navBtn}`}
           >
             ←
           </button>
-          <h3 className="min-w-[160px] text-center font-[family-name:var(--font-display)] text-lg text-[#0a0a0a]">
+          <h3 className={`min-w-[160px] text-center font-[family-name:var(--font-display)] text-lg ${t.heading}`}>
             {formatMonthYear(viewDate)}
           </h3>
           <button
             type="button"
             onClick={() => setViewDate((d) => addMonths(d, 1))}
-            className="rounded-md border border-[#d4d4cc] px-2 py-1 text-sm hover:bg-[#ecece7]"
+            className={`rounded-md border px-2 py-1 text-sm ${t.navBtn}`}
           >
             →
           </button>
         </div>
-        <div className="flex flex-wrap gap-3 text-xs text-[#52525b]">
+        <div className={`flex flex-wrap gap-3 text-xs ${t.muted}`}>
           <Legend dot="bg-violet-500" label="Posts" />
           <Legend dot="bg-emerald-500" label="Meetings" />
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[#d4d4cc] bg-white">
-        <div className="grid grid-cols-7 border-b border-[#ecece7] bg-[#fafaf8] text-center text-[10px] font-semibold uppercase tracking-wide text-[#52525b]">
+      <div className={`overflow-hidden rounded-lg border ${t.border} ${t.panel}`}>
+        <div className={`grid grid-cols-7 border-b text-center text-[10px] font-semibold uppercase tracking-wide ${t.innerBorder} ${t.panelMuted} ${t.muted}`}>
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
             <div key={d} className="py-2">
               {d}
@@ -92,7 +113,7 @@ export function CalendarView({ runId, siteId }: CalendarViewProps) {
               return (
                 <div
                   key={`empty-${i}`}
-                  className="min-h-[88px] border-b border-r border-[#ecece7] bg-[#fafaf8]/50 last:border-r-0"
+                  className={`min-h-[88px] border-b border-r last:border-r-0 ${t.innerBorder} ${t.panelMuted}/50`}
                 />
               );
             }
@@ -106,15 +127,17 @@ export function CalendarView({ runId, siteId }: CalendarViewProps) {
                 key={day.toISOString()}
                 type="button"
                 onClick={() => setSelectedDay(day)}
-                className={`min-h-[88px] border-b border-r border-[#ecece7] p-1.5 text-left transition last:border-r-0 hover:bg-[#fafaf8] ${
-                  isSelected ? "bg-violet-50 ring-1 ring-inset ring-violet-300" : ""
+                className={`min-h-[88px] border-b border-r p-1.5 text-left transition last:border-r-0 ${t.innerBorder} ${t.dayHover} ${
+                  isSelected ? t.daySelected : ""
                 }`}
               >
                 <span
                   className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
                     isToday
-                      ? "badge-dark"
-                      : "text-[#3f3f46]"
+                      ? isDark
+                        ? "bg-white text-black"
+                        : "badge-dark"
+                      : t.dayNum
                   }`}
                 >
                   {day.getDate()}
@@ -135,7 +158,7 @@ export function CalendarView({ runId, siteId }: CalendarViewProps) {
                     </div>
                   ))}
                   {grouped.length > 3 && (
-                    <p className="px-1 text-[9px] text-[#52525b]">
+                    <p className={`px-1 text-[9px] ${t.muted}`}>
                       +{grouped.length - 3} more
                     </p>
                   )}
@@ -146,19 +169,19 @@ export function CalendarView({ runId, siteId }: CalendarViewProps) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-[#d4d4cc] bg-white p-4">
-        <h4 className="text-sm font-medium text-[#0a0a0a]">
+      <div className={`rounded-lg border p-4 ${t.border} ${t.panel}`}>
+        <h4 className={`text-sm font-medium ${t.heading}`}>
           {formatDayLabel(selectedDay)}
         </h4>
         {dayItems.length === 0 ? (
-          <p className="mt-2 text-sm text-[#52525b]">Nothing scheduled this day.</p>
+          <p className={`mt-2 text-sm ${t.muted}`}>Nothing scheduled this day.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {dayItems.map((item) =>
               item.kind === "meeting" ? (
-                <MeetingRow key={item.event.id} event={item.event} />
+                <MeetingRow key={item.event.id} event={item.event} isDark={isDark} />
               ) : (
-                <PostCampaignRow key={item.personaId} campaign={item} />
+                <PostCampaignRow key={item.personaId} campaign={item} isDark={isDark} />
               ),
             )}
           </ul>
@@ -181,29 +204,35 @@ function Legend({ dot, label }: { dot: string; label: string }) {
   );
 }
 
-function PostCampaignRow({ campaign }: { campaign: PostCampaignGroup }) {
+function PostCampaignRow({
+  campaign,
+  isDark,
+}: {
+  campaign: PostCampaignGroup;
+  isDark: boolean;
+}) {
   const timeRange =
     campaign.platforms.length === 1
       ? formatTime(campaign.platforms[0].startsAt)
       : `${formatTime(campaign.platforms[0].startsAt)} – ${formatTime(campaign.platforms[campaign.platforms.length - 1].startsAt)}`;
 
   return (
-    <li className="flex items-start gap-3 rounded-md border border-[#ecece7] px-3 py-2">
+    <li className={`flex items-start gap-3 rounded-md border px-3 py-2 ${isDark ? "border-white/10" : "border-[#ecece7]"}`}>
       <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-violet-500" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium leading-snug text-[#0a0a0a]">
+        <p className={`text-sm font-medium leading-snug ${isDark ? "text-white" : "text-[#0a0a0a]"}`}>
           {campaign.heading}
         </p>
-        <p className="mt-1 text-xs text-[#52525b]">
+        <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-[#52525b]"}`}>
           {campaign.personaName} · {timeRange}
         </p>
         {campaign.caption && campaign.caption !== campaign.heading && (
-          <p className="mt-1 line-clamp-2 text-xs text-[#3f3f46]">
+          <p className={`mt-1 line-clamp-2 text-xs ${isDark ? "text-zinc-300" : "text-[#3f3f46]"}`}>
             {campaign.caption}
           </p>
         )}
       </div>
-      <span className="shrink-0 text-[10px] uppercase text-[#a1a1aa]">
+      <span className={`shrink-0 text-[10px] uppercase ${isDark ? "text-zinc-500" : "text-[#a1a1aa]"}`}>
         {campaign.status}
       </span>
     </li>
@@ -212,6 +241,7 @@ function PostCampaignRow({ campaign }: { campaign: PostCampaignGroup }) {
 
 function MeetingRow({
   event,
+  isDark,
 }: {
   event: {
     id: string;
@@ -222,24 +252,25 @@ function MeetingRow({
     company?: string;
     status: string;
   };
+  isDark: boolean;
 }) {
   return (
-    <li className="flex items-start gap-3 rounded-md border border-[#ecece7] px-3 py-2">
+    <li className={`flex items-start gap-3 rounded-md border px-3 py-2 ${isDark ? "border-white/10" : "border-[#ecece7]"}`}>
       <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium text-[#0a0a0a]">{event.title}</p>
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase text-emerald-900">
+          <p className={`text-sm font-medium ${isDark ? "text-white" : "text-[#0a0a0a]"}`}>{event.title}</p>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-900"}`}>
             {event.type?.replace("_", " ")}
           </span>
         </div>
-        <p className="mt-0.5 text-xs text-[#52525b]">
+        <p className={`mt-0.5 text-xs ${isDark ? "text-zinc-400" : "text-[#52525b]"}`}>
           {formatTime(event.startsAt)}
           {event.durationMinutes ? ` · ${event.durationMinutes} min` : ""}
           {event.company ? ` · ${event.company}` : ""}
         </p>
       </div>
-      <span className="shrink-0 text-[10px] uppercase text-[#a1a1aa]">
+      <span className={`shrink-0 text-[10px] uppercase ${isDark ? "text-zinc-500" : "text-[#a1a1aa]"}`}>
         {event.status}
       </span>
     </li>

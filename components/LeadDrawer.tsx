@@ -1,0 +1,385 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Doc, Id } from "@/convex/_generated/dataModel";
+import {
+  MONACO_COLUMNS,
+  type BoardLead,
+  type MonacoColumnId,
+  columnLabel,
+  defaultStageForColumn,
+  formatCurrency,
+} from "@/lib/monaco-board";
+import { stageLabel } from "@/lib/pipeline";
+import { ScoreBadge } from "./ScoreBadge";
+import { PostEditorModal } from "./PostEditorModal";
+
+type LeadDrawerProps = {
+  lead: BoardLead;
+  run: Doc<"runs">;
+  runId: Id<"runs">;
+  onClose: () => void;
+  onMove: (columnId: MonacoColumnId) => Promise<void>;
+};
+
+const platformLabels = {
+  linkedin: "LinkedIn",
+  twitter: "X",
+  instagram: "Instagram",
+} as const;
+
+export function LeadDrawer({
+  lead,
+  run,
+  runId,
+  onClose,
+  onMove,
+}: LeadDrawerProps) {
+  const email = useQuery(api.emails.getByPersona, {
+    personaId: lead.personaId as Id<"personas">,
+  });
+  const posts = useQuery(api.posts.listByPersona, {
+    personaId: lead.personaId as Id<"personas">,
+  });
+  const meetings = useQuery(api.meetings.listByRun, { runId });
+  const persona = useQuery(api.personas.listByRun, { runId });
+
+  const approveEmail = useMutation(api.emails.approveAndSend);
+  const approveCampaign = useMutation(api.posts.approvePersonaCampaign);
+
+  const [emailSent, setEmailSent] = useState(false);
+  const [campaignApproved, setCampaignApproved] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<Id<"posts"> | null>(null);
+
+  const personaDoc = persona?.find((p) => p._id === lead.personaId);
+  const leadMeeting = useMemo(
+    () =>
+      meetings?.find(
+        (m) => m.leadId === lead.id || (m.company === lead.company && m.personaId === lead.personaId),
+      ),
+    [meetings, lead],
+  );
+
+  async function handleApproveEmail() {
+    if (!email) return;
+    await approveEmail({ emailId: email._id });
+    setEmailSent(true);
+  }
+
+  async function handleApproveCampaign() {
+    await approveCampaign({ personaId: lead.personaId as Id<"personas"> });
+    setCampaignApproved(true);
+  }
+
+  const emailQueued = emailSent || email?.sent;
+  const postsDone =
+    campaignApproved ||
+    (posts?.every((p) => p.status === "scheduled" || p.status === "posted") ?? false);
+
+  return (
+    <>
+      {editingPostId && posts && posts.length > 0 && (
+        <PostEditorModal
+          posts={posts}
+          initialPostId={editingPostId}
+          personaName={personaDoc?.name ?? lead.personaName ?? "Persona"}
+          variant="dark"
+          onClose={() => setEditingPostId(null)}
+        />
+      )}
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      <aside
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-white/10 bg-[#111] shadow-2xl"
+        role="dialog"
+        aria-label="Lead details"
+      >
+        <header className="shrink-0 border-b border-white/10 px-5 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <ScoreBadge intentScore={lead.intentScore} />
+                <span className="font-mono text-xs text-zinc-500">
+                  {formatCurrency(lead.value)}
+                </span>
+              </div>
+              <h2 className="mt-2 font-[family-name:var(--font-display)] text-xl text-white">
+                {lead.company}
+              </h2>
+              <p className="mt-0.5 text-sm text-zinc-400">
+                {lead.name} · {lead.title}
+              </p>
+              {lead.personaName && (
+                <p className="mt-1 text-xs uppercase tracking-wide text-zinc-600">
+                  {lead.personaName}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1.5 text-zinc-500 hover:bg-white/10 hover:text-white"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <DrawerSection title="Intent signals · Orange Slice">
+            {lead.personaDealMin != null && lead.personaDealMax != null && (
+              <div className="mb-3 rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2.5 text-sm text-sky-100">
+                <p className="font-medium">Personalized deal range</p>
+                <p className="mt-1 text-xs leading-relaxed text-sky-200/90">
+                  {lead.pricingModel} ·{" "}
+                  {formatCurrency(lead.personaDealMin)}–
+                  {formatCurrency(lead.personaDealMax)} for{" "}
+                  {lead.personaName ?? "this persona"}
+                </p>
+                {lead.dealValueExplanation && (
+                  <p className="mt-2 text-xs text-sky-200/70">
+                    {lead.dealValueExplanation}
+                  </p>
+                )}
+                {lead.motionScore != null && (
+                  <p className="mt-1 font-mono text-xs text-sky-300">
+                    Motion score: {lead.motionScore}/100 →{" "}
+                    {formatCurrency(lead.value)}
+                  </p>
+                )}
+              </div>
+            )}
+            <ul className="space-y-2">
+              {lead.intentSignals
+                .filter((s) => !s.startsWith("Deal estimate:"))
+                .map((signal) => (
+                  <li
+                    key={signal}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm leading-relaxed text-zinc-300"
+                  >
+                    {signal}
+                  </li>
+                ))}
+            </ul>
+            {lead.intentSignals.filter((s) => !s.startsWith("Deal estimate:"))
+              .length === 0 && (
+              <p className="text-sm text-zinc-500">No signals yet.</p>
+            )}
+          </DrawerSection>
+
+          {leadMeeting && (
+            <DrawerSection title="Meeting">
+              <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
+                <p className="text-sm font-medium text-violet-100">
+                  {leadMeeting.title}
+                </p>
+                <p className="mt-1 text-xs text-violet-300/80">
+                  {new Date(leadMeeting.startsAt).toLocaleString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}{" "}
+                  · {leadMeeting.durationMinutes} min
+                </p>
+              </div>
+            </DrawerSection>
+          )}
+
+          <DrawerSection
+            title="Outbound"
+            action={
+              email && !emailQueued ? (
+                <button
+                  type="button"
+                  onClick={() => void handleApproveEmail()}
+                  className="rounded-md bg-white px-2.5 py-1 text-xs font-medium text-black hover:bg-zinc-200"
+                >
+                  Approve sequence
+                </button>
+              ) : emailQueued ? (
+                <span className="text-xs font-medium text-emerald-400">Queued</span>
+              ) : null
+            }
+          >
+            {!email ? (
+              <p className="text-sm text-zinc-500">Writing email sequence…</p>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-zinc-300">
+                  <span className="text-zinc-500">Subject: </span>
+                  {email.subject}
+                </p>
+                {email.touches.slice(0, 2).map((touch) => (
+                  <div
+                    key={touch.step}
+                    className="rounded-lg border border-white/10 bg-[#1a1a1a] p-3"
+                  >
+                    <p className="font-mono text-[10px] uppercase text-zinc-600">
+                      Touch {touch.step}
+                    </p>
+                    <p className="mt-1 line-clamp-4 text-sm leading-relaxed text-zinc-400">
+                      {touch.body}
+                    </p>
+                  </div>
+                ))}
+                {email.touches.length > 2 && (
+                  <p className="text-xs text-zinc-600">
+                    +{email.touches.length - 2} more touches
+                  </p>
+                )}
+              </div>
+            )}
+          </DrawerSection>
+
+          <DrawerSection
+            title="Inbound"
+            action={
+              posts && posts.length > 0 && !postsDone ? (
+                <button
+                  type="button"
+                  onClick={() => void handleApproveCampaign()}
+                  className="rounded-md bg-white px-2.5 py-1 text-xs font-medium text-black hover:bg-zinc-200"
+                >
+                  Approve campaign
+                </button>
+              ) : postsDone && posts && posts.length > 0 ? (
+                <span className="text-xs font-medium text-emerald-400">Scheduled</span>
+              ) : null
+            }
+          >
+            {!personaDoc?.posterUrl && !posts?.length ? (
+              <p className="text-sm text-zinc-500">Generating poster & captions…</p>
+            ) : (
+              <div className="space-y-3">
+                {(personaDoc?.posterUrl ?? posts?.[0]?.posterUrl) && (
+                  <div className="overflow-hidden rounded-lg border border-white/10">
+                    <Image
+                      src={personaDoc?.posterUrl ?? posts![0]!.posterUrl}
+                      alt="Campaign poster"
+                      width={320}
+                      height={320}
+                      className="w-full object-cover"
+                      unoptimized
+                    />
+                  </div>
+                )}
+                {(personaDoc?.caption ?? posts?.[0]?.caption) && (
+                  <p className="text-sm leading-relaxed text-zinc-400">
+                    {personaDoc?.caption ?? posts?.[0]?.caption}
+                  </p>
+                )}
+                {posts && posts.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {posts.map((p) => (
+                      <button
+                        key={p._id}
+                        type="button"
+                        onClick={() => setEditingPostId(p._id)}
+                        className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200"
+                      >
+                        {platformLabels[p.platform]} · {p.status}
+                        {p.status === "draft" ? " · edit" : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </DrawerSection>
+
+          <DrawerSection title="Contact">
+            <div className="flex flex-wrap gap-2">
+              {lead.email && (
+                <a
+                  href={`mailto:${lead.email}`}
+                  className="rounded-md border border-white/15 px-3 py-1.5 text-sm text-sky-400 hover:bg-white/5"
+                >
+                  {lead.email}
+                </a>
+              )}
+              {lead.linkedin && (
+                <a
+                  href={lead.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md border border-white/15 px-3 py-1.5 text-sm text-sky-400 hover:bg-white/5"
+                >
+                  LinkedIn
+                </a>
+              )}
+            </div>
+          </DrawerSection>
+
+          <DrawerSection title="Pipeline">
+            <dl className="mb-3 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-xs text-zinc-600">Stage</dt>
+                <dd className="text-white">{stageLabel(lead.stage)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-zinc-600">Column</dt>
+                <dd className="text-white">{columnLabel(lead.columnId)}</dd>
+              </div>
+            </dl>
+            <div className="flex flex-wrap gap-2">
+              {MONACO_COLUMNS.map((column) => (
+                <button
+                  key={column.id}
+                  type="button"
+                  disabled={moving || lead.columnId === column.id}
+                  onClick={async () => {
+                    setMoving(true);
+                    try {
+                      await onMove(column.id);
+                    } finally {
+                      setMoving(false);
+                    }
+                  }}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition disabled:opacity-40 ${
+                    lead.columnId === column.id
+                      ? "border-sky-500 bg-sky-500/20 text-sky-300"
+                      : "border-white/15 text-zinc-400 hover:border-white/30 hover:bg-white/5"
+                  }`}
+                >
+                  {column.label}
+                </button>
+              ))}
+            </div>
+          </DrawerSection>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function DrawerSection({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mb-6">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          {title}
+        </h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}

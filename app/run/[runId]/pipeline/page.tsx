@@ -1,4 +1,4 @@
-import { PipelinePage } from "@/components/PipelinePage";
+import { redirect } from "next/navigation";
 
 type Props = {
   params: Promise<{ runId: string }>;
@@ -6,5 +6,5 @@ type Props = {
 
 export default async function PipelineRoute({ params }: Props) {
   const { runId } = await params;
-  return <PipelinePage runId={runId} />;
+  redirect(`/run/${runId}`);
 }

@@ -20,6 +20,78 @@ export function isPostizConfigured(): boolean {
   );
 }
 
+/** Composio Connect MCP — consumer key from AI Clients dashboard (ck_...). */
+export function isComposioMcpConfigured(): boolean {
+  return Boolean(optionalEnv("COMPOSIO_CONSUMER_API_KEY")?.startsWith("ck_"));
+}
+
+/** Legacy SDK path — project API key + LinkedIn auth config. */
+export function isComposioSdkConfigured(): boolean {
+  return Boolean(
+    optionalEnv("COMPOSIO_API_KEY") &&
+      optionalEnv("COMPOSIO_LINKEDIN_AUTH_CONFIG_ID"),
+  );
+}
+
+/** Composio is optional — LinkedIn publishing via MCP or SDK. */
+export function isComposioConfigured(): boolean {
+  return (
+    isComposioMcpConfigured() ||
+    isComposioSdkConfigured() ||
+    hasComposioProjectApiKey()
+  );
+}
+
+export function hasComposioProjectApiKey(): boolean {
+  const key = optionalEnv("COMPOSIO_API_KEY");
+  return Boolean(key && !key.startsWith("ck_"));
+}
+
+export function getDashboardConnectAppUrl(
+  toolkit: "linkedin" | "twitter" | "instagram",
+): string {
+  const workspace =
+    optionalEnv("COMPOSIO_DASHBOARD_WORKSPACE") ?? "mdadnan456_workspace";
+  return `https://dashboard.composio.dev/${workspace}/~/connect/apps/${toolkit}`;
+}
+
+export function getComposioUserId(): string {
+  return optionalEnv("COMPOSIO_USER_ID") ?? "launchpad-demo";
+}
+
+export function getToolkitAuthConfigOverride(
+  toolkit: "linkedin" | "twitter" | "instagram",
+): string | undefined {
+  switch (toolkit) {
+    case "twitter":
+      return optionalEnv("COMPOSIO_TWITTER_AUTH_CONFIG_ID");
+    case "instagram":
+      return optionalEnv("COMPOSIO_INSTAGRAM_AUTH_CONFIG_ID");
+    default:
+      return undefined;
+  }
+}
+
+export function getToolkitConnectInfo(
+  toolkit: "linkedin" | "twitter" | "instagram",
+): {
+  connectAvailable: boolean;
+  setupMessage?: string;
+  dashboardConnectUrl: string;
+} {
+  const dashboardConnectUrl = getDashboardConnectAppUrl(toolkit);
+
+  if (
+    toolkit === "twitter" &&
+    !getToolkitAuthConfigOverride("twitter") &&
+    !hasComposioProjectApiKey()
+  ) {
+    return { connectAvailable: true, dashboardConnectUrl };
+  }
+
+  return { connectAvailable: true, dashboardConnectUrl };
+}
+
 /** Orange Slice SDK expects ORANGESLICE_API_KEY; ORANGE_SLICE_API_KEY is kept for compatibility. */
 export function getOrangeSliceApiKey(): string {
   const key =

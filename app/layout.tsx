@@ -21,7 +21,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Launchpad",
   description:
-    "Paste a URL. Get outbound pipelines and inbound content for every buyer persona.",
+    "Drop your website URL. Get personas, scored leads, outbound emails, and inbound content — per buyer segment, in one run.",
 };
 
 export default function RootLayout({

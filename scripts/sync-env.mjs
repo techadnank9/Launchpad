@@ -29,6 +29,13 @@ const OPTIONAL_KEYS = [
   "POSTIZ_LINKEDIN_INTEGRATION_ID",
   "POSTIZ_X_INTEGRATION_ID",
   "POSTIZ_INSTAGRAM_INTEGRATION_ID",
+  "COMPOSIO_CONSUMER_API_KEY",
+  "COMPOSIO_API_KEY",
+  "COMPOSIO_LINKEDIN_AUTH_CONFIG_ID",
+  "COMPOSIO_USER_ID",
+  "COMPOSIO_DASHBOARD_WORKSPACE",
+  "COMPOSIO_TWITTER_AUTH_CONFIG_ID",
+  "COMPOSIO_INSTAGRAM_AUTH_CONFIG_ID",
 ];
 
 function parseEnvFile(content) {
@@ -115,6 +122,16 @@ for (const key of OPTIONAL_KEYS) {
 if (!vars.POSTIZ_API_KEY?.trim() || !vars.POSTIZ_BASE_URL?.trim()) {
   console.log(
     "\nℹ️  Postiz not configured — inbound posts will stay in Launchpad's calendar only.",
+  );
+}
+
+if (
+  !vars.COMPOSIO_CONSUMER_API_KEY?.trim() &&
+  (!vars.COMPOSIO_API_KEY?.trim() ||
+    !vars.COMPOSIO_LINKEDIN_AUTH_CONFIG_ID?.trim())
+) {
+  console.log(
+    "\nℹ️  Composio not configured — approve will use Postiz or local scheduling only.",
   );
 }
 

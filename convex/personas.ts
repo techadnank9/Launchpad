@@ -8,6 +8,9 @@ const personaInput = v.object({
   contentTone: v.string(),
   outboundTargets: v.string(),
   posterStyle: v.string(),
+  dealSizeMinUsd: v.optional(v.number()),
+  dealSizeMaxUsd: v.optional(v.number()),
+  pricingModel: v.optional(v.string()),
 });
 
 export const createPersonas = internalMutation({

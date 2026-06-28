@@ -47,6 +47,9 @@ export const run = internalAction({
             linkedin,
             intentScore,
             intentSignals,
+            motionScore,
+            estimatedDealValue,
+            dealValueExplanation,
             pipelineStage,
           }): LeadMemory => ({
             name,
@@ -56,13 +59,19 @@ export const run = internalAction({
             linkedin,
             intentScore,
             intentSignals,
+            motionScore,
+            estimatedDealValue,
+            dealValueExplanation,
             pipelineStage,
           }),
         );
       }
 
       const freshLeads = await findLeads(persona);
-      const scoredFresh = await scoreLeads(freshLeads, persona);
+      const scoredFresh = await scoreLeads(freshLeads, persona, {
+        productSummary: args.productSummary,
+        sellerBrandName: run?.brandCompanyName,
+      });
       const freshMemory = scoredFresh.map((lead) =>
         toLeadMemory({
           ...lead,

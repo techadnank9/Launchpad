@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { brandSocialStudyValidator } from "./schema";
 
 export const submitUrl = mutation({
   args: { url: v.string() },
@@ -59,6 +60,7 @@ export const updateRunStatus = internalMutation({
     brandColors: v.optional(v.array(v.string())),
     brandVisualStyle: v.optional(v.string()),
     brandImageryNotes: v.optional(v.string()),
+    brandSocialStudy: v.optional(brandSocialStudyValidator),
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -84,6 +86,9 @@ export const updateRunStatus = internalMutation({
     }
     if (updates.brandImageryNotes !== undefined) {
       patch.brandImageryNotes = updates.brandImageryNotes;
+    }
+    if (updates.brandSocialStudy !== undefined) {
+      patch.brandSocialStudy = updates.brandSocialStudy;
     }
     if (updates.error !== undefined) {
       patch.error = updates.error;

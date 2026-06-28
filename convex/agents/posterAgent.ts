@@ -6,45 +6,8 @@ import { v } from "convex/values";
 import {
   generateCaption,
   generatePosterBytes,
-  type BrandContext,
 } from "../lib/openai";
-
-function brandFromRun(
-  run: {
-    url: string;
-    productSummary?: string;
-    valueProp?: string;
-    brandCompanyName?: string;
-    brandTagline?: string;
-    brandColors?: string[];
-    brandVisualStyle?: string;
-    brandImageryNotes?: string;
-  },
-  productSummary: string,
-): BrandContext {
-  if (
-    !run.brandCompanyName ||
-    !run.brandTagline ||
-    !run.brandColors?.length ||
-    !run.brandVisualStyle ||
-    !run.brandImageryNotes
-  ) {
-    throw new Error(
-      "Brand kit missing on run — re-run site analysis with a fresh URL",
-    );
-  }
-
-  return {
-    siteUrl: run.url,
-    productSummary: run.productSummary ?? productSummary,
-    valueProp: run.valueProp ?? "",
-    companyName: run.brandCompanyName,
-    tagline: run.brandTagline,
-    primaryColors: run.brandColors,
-    visualStyle: run.brandVisualStyle,
-    imageryNotes: run.brandImageryNotes,
-  };
-}
+import { brandFromRun } from "../lib/brandContext";
 
 export const run = internalAction({
   args: {

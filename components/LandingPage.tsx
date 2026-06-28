@@ -7,7 +7,13 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { SiteNav } from "./SiteNav";
 
-export function UrlInputForm({ autoFocus }: { autoFocus?: boolean }) {
+export function UrlInputForm({
+  autoFocus,
+  compact,
+}: {
+  autoFocus?: boolean;
+  compact?: boolean;
+}) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,26 +37,34 @@ export function UrlInputForm({ autoFocus }: { autoFocus?: boolean }) {
   }
 
   return (
-    <div className="w-full max-w-2xl">
+    <div className="w-full max-w-xl">
       <form
         onSubmit={handleSubmit}
-        className="surface flex w-full gap-0 overflow-hidden rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+        className="flex w-full flex-col gap-2 sm:flex-row sm:gap-0"
       >
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://yoursite.com"
-          autoFocus={autoFocus}
-          disabled={loading}
-          className="min-w-0 flex-1 bg-white px-5 py-4 text-base text-[#0a0a0a] placeholder:text-[#52525b] focus:outline-none disabled:text-[#52525b]"
-        />
+        <div className="surface flex min-w-0 flex-1 items-center overflow-hidden rounded-lg sm:rounded-r-none">
+          <span className="hidden shrink-0 border-r border-[#d4d4cc] bg-[#fafaf8] px-3 py-3.5 font-mono text-xs text-[#52525b] sm:block">
+            https://
+          </span>
+          <input
+            type="text"
+            inputMode="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="thecorgi.cafe"
+            autoFocus={autoFocus}
+            disabled={loading}
+            className="min-w-0 flex-1 bg-white px-4 py-3.5 text-base text-[#0a0a0a] placeholder:text-[#a1a1aa] focus:outline-none disabled:text-[#52525b]"
+          />
+        </div>
         <button
           type="submit"
           disabled={loading || !url.trim()}
-          className="border-l border-[#d4d4cc] btn-primary px-8 py-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:bg-[#737373]"
+          className={`btn-primary shrink-0 rounded-lg px-6 py-3.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:bg-[#737373] ${
+            compact ? "" : "sm:rounded-l-none"
+          }`}
         >
-          {loading ? "Starting…" : "Launch GTM"}
+          {loading ? "Running…" : "Run"}
         </button>
       </form>
       {error && (
@@ -60,75 +74,122 @@ export function UrlInputForm({ autoFocus }: { autoFocus?: boolean }) {
   );
 }
 
+const DELIVERABLES = [
+  {
+    label: "Personas",
+    detail: "Who buys, what hurts, how to talk to them",
+  },
+  {
+    label: "Leads",
+    detail: "Real contacts, intent-scored, staged in pipeline",
+  },
+  {
+    label: "Outbound",
+    detail: "Cold email sequences per segment",
+  },
+  {
+    label: "Inbound",
+    detail: "Branded posters + captions on a calendar",
+  },
+] as const;
+
 export function LandingPage() {
   return (
     <div className="min-h-screen">
       <SiteNav showClientSwitcher />
 
       <main>
-        {/* Hero */}
-        <section className="border-b border-[#d4d4cc] bg-white">
-          <div className="app-shell py-24 sm:py-32">
-            <p className="mb-5 font-mono text-xs uppercase tracking-[0.2em] text-[#52525b]">
-              Orange Slice Growth Hackathon
-            </p>
-            <h1 className="max-w-3xl font-[family-name:var(--font-display)] text-5xl leading-[1.06] tracking-tight text-[#0a0a0a] sm:text-6xl lg:text-7xl">
-              Paste your URL.
-              <br />
-              We build your GTM.
-            </h1>
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-[#3f3f46]">
-              Launchpad detects every buyer persona on your site, then runs
-              outbound pipelines and inbound content — in parallel.
-            </p>
-            <div className="mt-12">
-              <UrlInputForm autoFocus />
+        <section className="border-b border-[#d4d4cc] bg-[#f4f4f0]">
+          <div className="app-shell py-16 sm:py-24">
+            <div className="grid gap-12 lg:grid-cols-[1fr_340px] lg:items-end">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-[#737373]">
+                  Orange Slice hackathon · June 2026
+                </p>
+                <h1 className="mt-5 max-w-[14ch] font-[family-name:var(--font-display)] text-[2.75rem] leading-[1.05] tracking-tight text-[#0a0a0a] sm:text-6xl">
+                  Your site. Every persona. One run.
+                </h1>
+                <p className="mt-6 max-w-md text-base leading-relaxed text-[#3f3f46] sm:text-lg">
+                  Launchpad reads your homepage, splits the market into buyer
+                  segments, then runs outbound and inbound for each — leads,
+                  emails, posts, meetings — at the same time.
+                </p>
+                <div className="mt-10">
+                  <UrlInputForm autoFocus />
+                </div>
+                <p className="mt-4 text-xs text-[#737373]">
+                  <Link
+                    href="/how-it-works"
+                    className="text-[#52525b] underline underline-offset-2 hover:text-[#0a0a0a]"
+                  >
+                    See the flow
+                  </Link>
+                  <span className="mx-2">·</span>
+                  Fiber, Orange Slice, GPT-4o wired in
+                </p>
+              </div>
+
+              <div className="surface rounded-xl p-5 lg:mb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a1a1aa]">
+                  What lands in your dashboard
+                </p>
+                <ul className="mt-4 space-y-4">
+                  {DELIVERABLES.map((item) => (
+                    <li key={item.label} className="border-b border-[#ecece7] pb-4 last:border-0 last:pb-0">
+                      <p className="text-sm font-semibold text-[#0a0a0a]">
+                        {item.label}
+                      </p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-[#52525b]">
+                        {item.detail}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <p className="mt-4 text-sm text-[#52525b]">
-              No onboarding. No ICP forms. Just a URL.{" "}
-              <Link
-                href="/how-it-works"
-                className="font-medium text-[#0a0a0a] underline underline-offset-2 hover:no-underline"
-              >
-                See how it works →
-              </Link>
-            </p>
           </div>
         </section>
 
-        {/* How it works */}
-        <section className="app-shell py-20">
-          <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight text-[#0a0a0a]">
-            Three engines, one input
-          </h2>
-          <p className="mt-3 max-w-xl text-[#3f3f46]">
-            Every sponsor integration fires simultaneously after you submit a URL.
-          </p>
+        <section className="app-shell py-16 sm:py-20">
+          <div className="max-w-2xl">
+            <h2 className="font-[family-name:var(--font-display)] text-2xl tracking-tight text-[#0a0a0a] sm:text-3xl">
+              What happens after you hit Run
+            </h2>
+            <p className="mt-3 text-[#3f3f46]">
+              Four agents per persona. Site analysis runs once, then everything
+              fans out in parallel.
+            </p>
+          </div>
 
-          <ol className="mt-12 grid gap-8 sm:grid-cols-3">
+          <ol className="mt-10 grid gap-px overflow-hidden rounded-xl border border-[#d4d4cc] bg-[#d4d4cc] sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
-                step: "01",
-                title: "Persona detection",
-                body: "GPT-4o reads your website and surfaces 3–5 distinct buyer segments with messaging briefs.",
+                n: "1",
+                title: "Read the site",
+                body: "Scrape + GPT-4o. Personas, brand colors, messaging angles. Merges with prior runs on the same domain.",
               },
               {
-                step: "02",
-                title: "Outbound pipeline",
-                body: "Fiber AI finds leads. Orange Slice scores intent. GPT-4o writes cold email sequences per persona.",
+                n: "2",
+                title: "Find buyers",
+                body: "Fiber surfaces leads. Orange Slice scores intent. High-fit contacts get meetings on your calendar.",
               },
               {
-                step: "03",
-                title: "Inbound content",
-                body: "DALL-E 3 posters and captions per persona, queued for LinkedIn, X, and Instagram in your content calendar.",
+                n: "3",
+                title: "Write outbound",
+                body: "Multi-touch email per persona — not one generic blast.",
+              },
+              {
+                n: "4",
+                title: "Ship inbound",
+                body: "On-brand poster + caption per persona, queued to LinkedIn, X, and Instagram.",
               },
             ].map((item) => (
-              <li key={item.step}>
-                <p className="font-mono text-xs text-[#52525b]">{item.step}</p>
-                <h3 className="mt-2 text-base font-semibold text-[#0a0a0a]">
+              <li key={item.n} className="bg-white p-5">
+                <span className="font-mono text-xs text-[#a1a1aa]">{item.n}</span>
+                <h3 className="mt-2 text-sm font-semibold text-[#0a0a0a]">
                   {item.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#3f3f46]">
+                <p className="mt-2 text-xs leading-relaxed text-[#52525b]">
                   {item.body}
                 </p>
               </li>
@@ -136,24 +197,23 @@ export function LandingPage() {
           </ol>
         </section>
 
-        {/* CTA repeat */}
-        <section className="border-t border-[#d4d4cc] bg-[#ecece7]/50">
-          <div className="app-shell py-16 text-center">
-            <h2 className="font-[family-name:var(--font-display)] text-2xl tracking-tight text-[#0a0a0a] sm:text-3xl">
-              Ready to go to market?
-            </h2>
-            <p className="mx-auto mt-3 max-w-md text-[#3f3f46]">
-              Enter your website URL above or paste it here to start.
-            </p>
-            <div className="mx-auto mt-8 flex justify-center">
-              <UrlInputForm />
+        <section className="border-t border-[#d4d4cc] bg-white">
+          <div className="app-shell flex flex-col items-start justify-between gap-8 py-14 sm:flex-row sm:items-center">
+            <div>
+              <p className="font-[family-name:var(--font-display)] text-xl text-[#0a0a0a] sm:text-2xl">
+                Try it on your domain.
+              </p>
+              <p className="mt-1 text-sm text-[#52525b]">
+                Takes about two minutes to see the first personas.
+              </p>
             </div>
+            <UrlInputForm compact />
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-[#d4d4cc] py-8 text-center text-sm text-[#52525b]">
-        Launchpad · AI Growth Hackathon 2026
+      <footer className="border-t border-[#d4d4cc] py-6 text-center text-xs text-[#a1a1aa]">
+        Launchpad
       </footer>
     </div>
   );

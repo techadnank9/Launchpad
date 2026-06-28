@@ -8,6 +8,7 @@ import { normalizeDomain } from "../lib/domain";
 import { mergePersonas } from "../lib/memory";
 import { scrapeWebsite } from "../lib/scraper";
 import { analyzeSiteWithGPT } from "../lib/openai";
+import { studyBrandSocialPosts } from "../lib/socialStudy";
 
 export const run = internalAction({
   args: { runId: v.id("runs"), url: v.string() },
@@ -39,6 +40,9 @@ export const run = internalAction({
           contentTone,
           outboundTargets,
           posterStyle,
+          dealSizeMinUsd,
+          dealSizeMaxUsd,
+          pricingModel,
         }) => ({
           name,
           painPoints,
@@ -46,6 +50,9 @@ export const run = internalAction({
           contentTone,
           outboundTargets,
           posterStyle,
+          dealSizeMinUsd,
+          dealSizeMaxUsd,
+          pricingModel,
         }),
       );
 
@@ -57,6 +64,26 @@ export const run = internalAction({
       );
 
       const personas = mergePersonas(cachedPersonas, analysis.personas);
+
+      const existingSite = await ctx.runQuery(internal.sites.getSiteById, {
+        siteId,
+      });
+
+      let brandSocialStudy = existingSite?.brandSocialStudy;
+      if (!brandSocialStudy?.samplePosts?.length) {
+        brandSocialStudy = await studyBrandSocialPosts({
+          html: scraped.html,
+          siteUrl: args.url.startsWith("http") ? args.url : `https://${args.url}`,
+          brandName: analysis.brand.companyName,
+          tagline: analysis.brand.tagline,
+          visualStyle: analysis.brand.visualStyle,
+          siteTextSample: scraped.text,
+        });
+        await ctx.runMutation(internal.sites.updateBrandSocialStudy, {
+          siteId,
+          brandSocialStudy,
+        });
+      }
 
       await ctx.runMutation(internal.sites.updateSiteProfile, {
         siteId,
@@ -84,6 +111,7 @@ export const run = internalAction({
         brandColors: analysis.brand.primaryColors,
         brandVisualStyle: analysis.brand.visualStyle,
         brandImageryNotes: analysis.brand.imageryNotes,
+        brandSocialStudy,
       });
 
       const personaIds: Id<"personas">[] = await ctx.runMutation(

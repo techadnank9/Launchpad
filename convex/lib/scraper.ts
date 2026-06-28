@@ -8,6 +8,7 @@ export type SiteMeta = {
 export type SiteScrapeResult = {
   text: string;
   meta: SiteMeta;
+  html: string;
 };
 
 function readMetaContent(html: string, key: string): string | undefined {
@@ -86,6 +87,7 @@ export async function scrapeWebsite(url: string): Promise<SiteScrapeResult> {
     return {
       text: htmlToText(html).slice(0, 12000),
       meta: extractSiteMeta(html, url),
+      html: html.slice(0, 250_000),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

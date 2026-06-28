@@ -24,6 +24,9 @@ export const insertLeads = internalMutation({
         linkedin: v.optional(v.string()),
         intentScore: v.number(),
         intentSignals: v.array(v.string()),
+        motionScore: v.optional(v.number()),
+        estimatedDealValue: v.optional(v.number()),
+        dealValueExplanation: v.optional(v.string()),
         pipelineStage: v.union(
           v.literal("inbound"),
           v.literal("new"),
@@ -89,10 +92,10 @@ export const exportCsv = mutation({
       .collect();
 
     const header =
-      "Name,Title,Company,Email,LinkedIn,Stage,Intent Score,Signals";
+      "Name,Title,Company,Email,LinkedIn,Stage,Intent Score,Motion,Deal Value,Signals";
     const rows = leads.map(
       (l) =>
-        `"${l.name}","${l.title}","${l.company}","${l.email ?? ""}","${l.linkedin ?? ""}","${l.pipelineStage ?? "inbound"}",${l.intentScore},"${l.intentSignals.join("; ")}"`,
+        `"${l.name}","${l.title}","${l.company}","${l.email ?? ""}","${l.linkedin ?? ""}","${l.pipelineStage ?? "inbound"}",${l.intentScore},${l.motionScore ?? ""},${l.estimatedDealValue ?? ""},"${l.intentSignals.join("; ")}"`,
     );
     return [header, ...rows].join("\n");
   },

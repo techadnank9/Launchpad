@@ -7,6 +7,9 @@ export type PersonaMemory = {
   contentTone: string;
   outboundTargets: string;
   posterStyle: string;
+  dealSizeMinUsd?: number;
+  dealSizeMaxUsd?: number;
+  pricingModel?: string;
 };
 
 export type LeadMemory = {
@@ -17,6 +20,9 @@ export type LeadMemory = {
   linkedin?: string;
   intentScore: number;
   intentSignals: string[];
+  motionScore?: number;
+  estimatedDealValue?: number;
+  dealValueExplanation?: string;
   pipelineStage: PipelineStage;
 };
 
@@ -71,6 +77,13 @@ export function mergePersonas(
         incoming.outboundTargets,
       ),
       posterStyle: pickRicherText(existing.posterStyle, incoming.posterStyle),
+      dealSizeMinUsd: incoming.dealSizeMinUsd ?? existing.dealSizeMinUsd,
+      dealSizeMaxUsd: incoming.dealSizeMaxUsd ?? existing.dealSizeMaxUsd,
+      pricingModel:
+        pickRicherText(
+          existing.pricingModel ?? "",
+          incoming.pricingModel ?? "",
+        ) || undefined,
     };
   }
 
@@ -113,7 +126,19 @@ export function mergeLeads(
       intentScore,
       intentSignals: [
         ...new Set([...existing.intentSignals, ...incoming.intentSignals]),
-      ].slice(0, 6),
+      ].slice(0, 8),
+      motionScore: Math.max(
+        existing.motionScore ?? 0,
+        incoming.motionScore ?? 0,
+      ),
+      estimatedDealValue: Math.max(
+        existing.estimatedDealValue ?? 0,
+        incoming.estimatedDealValue ?? 0,
+      ),
+      dealValueExplanation:
+        (incoming.estimatedDealValue ?? 0) >= (existing.estimatedDealValue ?? 0)
+          ? incoming.dealValueExplanation ?? existing.dealValueExplanation
+          : existing.dealValueExplanation ?? incoming.dealValueExplanation,
       pipelineStage: stageFromIntentScore(intentScore),
     });
   }

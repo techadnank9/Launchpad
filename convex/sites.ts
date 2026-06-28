@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { personaSlug } from "./lib/memory";
+import { brandSocialStudyValidator } from "./schema";
 
 const personaShape = v.object({
   name: v.string(),
@@ -9,6 +10,9 @@ const personaShape = v.object({
   contentTone: v.string(),
   outboundTargets: v.string(),
   posterStyle: v.string(),
+  dealSizeMinUsd: v.optional(v.number()),
+  dealSizeMaxUsd: v.optional(v.number()),
+  pricingModel: v.optional(v.string()),
 });
 
 const leadShape = v.object({
@@ -19,6 +23,9 @@ const leadShape = v.object({
   linkedin: v.optional(v.string()),
   intentScore: v.number(),
   intentSignals: v.array(v.string()),
+  motionScore: v.optional(v.number()),
+  estimatedDealValue: v.optional(v.number()),
+  dealValueExplanation: v.optional(v.string()),
   pipelineStage: v.union(
     v.literal("inbound"),
     v.literal("new"),
@@ -58,6 +65,26 @@ export const attachRun = internalMutation({
   args: { runId: v.id("runs"), siteId: v.id("sites") },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.runId, { siteId: args.siteId });
+  },
+});
+
+export const getSiteById = internalQuery({
+  args: { siteId: v.id("sites") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.siteId);
+  },
+});
+
+export const updateBrandSocialStudy = internalMutation({
+  args: {
+    siteId: v.id("sites"),
+    brandSocialStudy: brandSocialStudyValidator,
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.siteId, {
+      brandSocialStudy: args.brandSocialStudy,
+      updatedAt: Date.now(),
+    });
   },
 });
 

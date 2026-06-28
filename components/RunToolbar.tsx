@@ -55,14 +55,6 @@ export function RunToolbar({
           </p>
         ) : null}
         <div className="ml-auto flex items-center gap-2">
-          {runId && (
-            <Link
-              href={`/run/${runId}/pipeline`}
-              className="rounded-md border border-[#d4d4cc] bg-white px-3 py-1.5 text-sm font-medium text-[#0a0a0a] hover:bg-[#ecece7]"
-            >
-              Pipeline board
-            </Link>
-          )}
           {run.status === "complete" && onExport && (
             <button
               onClick={onExport}
