@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f4f0;
+  --foreground: #0a0a0a;
+  --surface: #ffffff;
+  --border: #d4d4cc;
+  --muted: #52525b;
+  --muted-strong: #3f3f46;
+  --accent: #0a0a0a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-newsreader);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  input,
+  textarea,
+  select {
+    color: var(--foreground);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    color: var(--muted-strong);
+    opacity: 1;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+  }
+
+  ::selection {
+    background: #0a0a0a;
+    color: #fff;
+  }
+}
+
+@layer components {
+  /* Card shell — background/border only; don't set color (breaks text-white inside) */
+  .surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .app-shell {
+    width: 100%;
+    max-width: 1440px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .app-shell {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .app-shell {
+      padding-inline: 2rem;
+    }
+  }
+
+  .btn-primary {
+    background-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  .btn-primary:hover {
+    background-color: #262626;
+  }
+
+  .tab-active {
+    background-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  .persona-active {
+    border-color: #0a0a0a;
+    background-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  .badge-dark {
+    background-color: #0a0a0a;
+    color: #ffffff;
+  }
+}

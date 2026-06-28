@@ -1,0 +1,94 @@
+export type SiteMeta = {
+  title?: string;
+  description?: string;
+  themeColor?: string;
+  ogImage?: string;
+};
+
+export type SiteScrapeResult = {
+  text: string;
+  meta: SiteMeta;
+};
+
+function readMetaContent(html: string, key: string): string | undefined {
+  const patterns = [
+    new RegExp(
+      `<meta[^>]+(?:property|name)=["']${key}["'][^>]+content=["']([^"']+)["']`,
+      "i",
+    ),
+    new RegExp(
+      `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${key}["']`,
+      "i",
+    ),
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
+}
+
+function resolveUrl(baseUrl: string, maybeRelative?: string): string | undefined {
+  if (!maybeRelative) return undefined;
+  try {
+    return new URL(maybeRelative, baseUrl).href;
+  } catch {
+    return maybeRelative;
+  }
+}
+
+export function extractSiteMeta(html: string, baseUrl: string): SiteMeta {
+  const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
+  const description =
+    readMetaContent(html, "description") ??
+    readMetaContent(html, "og:description");
+  const themeColor = readMetaContent(html, "theme-color");
+  const ogImage = resolveUrl(
+    baseUrl,
+    readMetaContent(html, "og:image") ??
+      readMetaContent(html, "twitter:image"),
+  );
+
+  return { title, description, themeColor, ogImage };
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export async function scrapeWebsite(url: string): Promise<SiteScrapeResult> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; LaunchpadBot/1.0; +https://launchpad.dev)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const html = await response.text();
+    return {
+      text: htmlToText(html).slice(0, 12000),
+      meta: extractSiteMeta(html, url),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to scrape ${url}: ${message}`);
+  }
+}
